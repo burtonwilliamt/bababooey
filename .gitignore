@@ -3,3 +3,4 @@ venv/
 data/
 logs/
 __pycache__
+reformat_sound_effects.py
