@@ -2,7 +2,7 @@ import logging
 
 import discord
 
-from bababooey import setup_logging, setup_db, BababooeyBot, add_admin_commands
+from bababooey import setup_logging, setup_db, BababooeyBot, add_admin_commands, add_sound_effect_commands
 from settings import GUILD_IDS, BOT_TOKEN
 
 _log = logging.getLogger(__name__)
@@ -18,10 +18,13 @@ def main():
     intents.message_content = False  # pylint: disable=assigning-non-slot
 
     _log.info('Creating bot object.')
-    bot = BababooeyBot(intents=intents, guild_ids=GUILD_IDS, force_command_sync=True)
+    bot = BababooeyBot(intents=intents, guild_ids=GUILD_IDS)
 
     _log.info('Adding admin commands.')
     add_admin_commands(bot)
+
+    _log.info('Adding sound effect commands.')
+    add_sound_effect_commands(bot)
 
     _log.info('Starting the event bot.')
     # Set the log_handler to avoid double logging settup.
