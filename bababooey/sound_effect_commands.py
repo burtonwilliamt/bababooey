@@ -1,3 +1,4 @@
+from itertools import islice
 import shelve
 
 import asyncio
@@ -12,6 +13,14 @@ _vc_connection_lock = asyncio.Lock()
 
 # Amount of time to wait after connecting to voice before making noise.
 CONNECTION_WAIT_TIME = 0.5
+
+
+def split_every(n, iterable):
+    i = iter(iterable)
+    piece = list(islice(i, n))
+    while piece:
+        yield piece
+        piece = list(islice(i, n))
 
 
 def find_correct_voice_channel(member: discord.Member) -> discord.VoiceChannel:
@@ -146,6 +155,33 @@ def strip_leading_emoji(sound_effect_name: str) -> str:
     return sound_effect_name.split(' ', 1)[0]
 
 
+class SoundEffectButton(discord.ui.Button):
+
+    def __init__(self, sfx: SoundEffect, row: int = None):
+        super().__init__(style=discord.ButtonStyle.grey,
+                         label=sfx.name,
+                         emoji=sfx.emoji,
+                         row=row)
+        self.sfx = sfx
+
+    async def callback(self, interaction: discord.Interaction):
+        assert self.view is not None
+        voice_client = await ensure_voice(interaction.user)
+        await play_sfx(voice_client, self.sfx)
+        await interaction.response.edit_message(view=self.view)
+
+
+def make_sound_pallets(sfx_list: list[SoundEffect]) -> list[discord.ui.View]:
+    views = []
+    for group in split_every(20, sfx_list):
+        view = discord.ui.View()
+        views.append(view)
+        for row in range(len(group) // 4):
+            for sfx in islice(group, 4 * row, 4 * (row + 1)):
+                view.add_item(SoundEffectButton(sfx, row))
+    return views
+
+
 def add_sound_effect_commands(bot: BababooeyBot):
 
     sfx_cache = {sfx.name: sfx for sfx in read_copied_sfx()}
@@ -169,13 +205,30 @@ def add_sound_effect_commands(bot: BababooeyBot):
     @bot.tree.command()
     @app_commands.autocomplete(sound_effect_name=autocomplete_sound_effect_name)
     async def sound(interaction: discord.Interaction, sound_effect_name: str):
-        sound_effect_name = strip_leading_emoji(sound_effect_name)
         if sound_effect_name not in sfx_cache:
-            await interaction.response.send_message(
-                'I don\'t know a sound effect by that name.')
-            return
+            # Sometimes the leading emoji comes through sometimes it doesn't.
+            sound_effect_name = strip_leading_emoji(sound_effect_name)
+            # If it's still not a valid name.
+            if sound_effect_name not in sfx_cache:
+                await interaction.response.send_message(
+                    f'I don\'t know a sound effect by the name of `{sound_effect_name}`.'
+                )
+                return
+        the_sfx = sfx_cache[sound_effect_name]
         voice_client = await ensure_voice(interaction.user)
-        await play_sfx(voice_client, sfx_cache[sound_effect_name])
-        await interaction.response.send_message(
-            f'Played {sound_effect_name} in {voice_client.channel.name}',
-            ephemeral=True)
+        await play_sfx(voice_client, the_sfx)
+        view = discord.ui.View()
+        view.add_item(SoundEffectButton(sfx=the_sfx))
+        view.add_item(discord.ui.Button(style=discord.ButtonStyle.link, label='sauce', url=the_sfx.yt_url, emoji=chr(0x1f517)))
+        await interaction.response.send_message(view=view)
+
+    @bot.tree.command()
+    async def soundboard(interaction: discord.Interaction):
+        views = make_sound_pallets(list(sfx_cache.values()))
+        first_view = views.pop(0)
+        # Respond to the interaciton with the first pallet.
+        await interaction.response.send_message(view=first_view)
+
+        # Send the rest of the pallets.
+        for view in views:
+            await interaction.channel.send(view=view)
