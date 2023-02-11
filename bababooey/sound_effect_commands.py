@@ -140,6 +140,12 @@ def sort_sound_effect_name_matches(partial: str, sfx_name: str) -> int:
     return ignored_case + 0.5
 
 
+def strip_leading_emoji(sound_effect_name: str) -> str:
+    if ' ' not in sound_effect_name:
+        return sound_effect_name
+    return sound_effect_name.split(' ', 1)[0]
+
+
 def add_sound_effect_commands(bot: BababooeyBot):
 
     sfx_cache = {sfx.name: sfx for sfx in read_copied_sfx()}
@@ -156,13 +162,14 @@ def add_sound_effect_commands(bot: BababooeyBot):
         res.sort(key=lambda sfx: sort_sound_effect_name_matches(
             partial_sound, sfx.name))
         return [
-            app_commands.Choice(name=sfx.name, value=sfx.name)
+            app_commands.Choice(name=sfx.emoji + ' ' + sfx.name, value=sfx.name)
             for sfx in res[0:25]
         ]
 
     @bot.tree.command()
     @app_commands.autocomplete(sound_effect_name=autocomplete_sound_effect_name)
     async def sound(interaction: discord.Interaction, sound_effect_name: str):
+        sound_effect_name = strip_leading_emoji(sound_effect_name)
         if sound_effect_name not in sfx_cache:
             await interaction.response.send_message(
                 'I don\'t know a sound effect by that name.')
