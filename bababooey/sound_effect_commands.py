@@ -219,7 +219,11 @@ def add_sound_effect_commands(bot: BababooeyBot):
         await play_sfx(voice_client, the_sfx)
         view = discord.ui.View()
         view.add_item(SoundEffectButton(sfx=the_sfx))
-        view.add_item(discord.ui.Button(style=discord.ButtonStyle.link, label='sauce', url=the_sfx.yt_url, emoji=chr(0x1f517)))
+        view.add_item(
+            discord.ui.Button(style=discord.ButtonStyle.link,
+                              label='sauce',
+                              url=the_sfx.yt_url,
+                              emoji=chr(0x1f517)))
         await interaction.response.send_message(view=view)
 
     @bot.tree.command()
