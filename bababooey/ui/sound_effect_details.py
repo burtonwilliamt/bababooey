@@ -1,6 +1,6 @@
 import discord
 
-from bababooey import play_sfx, SoundEffect, millis_to_str
+from bababooey import SoundEffect
 from bababooey.ui import EditSoundEffectModal
 
 
@@ -14,7 +14,7 @@ class _PlaySoundEffectButton(discord.ui.Button):
 
     async def callback(self, interaction: discord.Interaction):
         assert self.view is not None
-        await play_sfx(self.sfx, interaction.user)
+        await self.sfx.play_for(interaction.user)
         await interaction.response.edit_message(view=self.view)
 
 
@@ -48,13 +48,3 @@ class SoundEffectDetailButtons(discord.ui.View):
         self.add_item(_PlaySoundEffectButton(sfx))
         self.add_item(_SoundEffectSauceButton(sfx))
         self.add_item(_EditSoundEffectButton(sfx))
-
-
-def sound_effect_detail_embed(sfx: SoundEffect) -> discord.Embed:
-    description = ''
-    description += f'Start: `{millis_to_str(sfx.start_time)}`\n'
-    description += f'End: `{millis_to_str(sfx.end_time)}`\n'
-    description += f'Original link: `{sfx.yt_url}`\n'
-    return discord.Embed(
-        title=f'{sfx.emoji} {sfx.name}',
-        description=description)

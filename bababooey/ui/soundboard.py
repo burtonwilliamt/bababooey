@@ -2,7 +2,7 @@ from itertools import islice
 
 import discord
 
-from bababooey import SoundEffect, play_sfx
+from bababooey import SoundEffect
 
 def _split_every(n, iterable):
     i = iter(iterable)
@@ -23,7 +23,7 @@ class _SimpleSoundEffectButton(discord.ui.Button):
 
     async def callback(self, interaction: discord.Interaction):
         assert self.view is not None
-        await play_sfx(self.sfx, interaction.user)
+        await self.sfx.play_for(interaction.user)
         await interaction.response.edit_message(view=self.view)
 
 

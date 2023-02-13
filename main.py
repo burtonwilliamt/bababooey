@@ -26,7 +26,7 @@ def main():
     _log.info('Adding sound effect commands.')
     add_sound_effect_commands(bot)
 
-    _log.info('Starting the event bot.')
+    _log.info('Starting the bot.')
     # Set the log_handler to avoid double logging settup.
     bot.run(BOT_TOKEN, log_handler=None)
 

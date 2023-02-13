@@ -3,13 +3,13 @@ import shelve
 import discord
 from discord import app_commands
 
-from bababooey import BababooeyBot, SoundEffect, play_sfx
-from bababooey.ui import make_soundboard_views, SoundEffectDetailButtons, sound_effect_detail_embed
+from bababooey import BababooeyBot, SoundEffect
+from bababooey.ui import make_soundboard_views, SoundEffectDetailButtons
 
 
-def _read_copied_sfx() -> list[SoundEffect]:
-    s = shelve.open('data/copied_sfx')
-    effects = s['sfx']
+def _read_sfx_data() -> list[SoundEffect]:
+    s = shelve.open('data/sfx_data')
+    effects = [SoundEffect(raw) for raw in s['data']]
     s.close()
     return effects
 
@@ -34,7 +34,7 @@ def _strip_leading_emoji(sound_effect_name: str) -> str:
 
 def add_sound_effect_commands(bot: BababooeyBot):
 
-    sfx_cache = {sfx.name: sfx for sfx in _read_copied_sfx()}
+    sfx_cache = {sfx.name: sfx for sfx in _read_sfx_data()}
 
     def _locate_sfx(mangled_name: str) -> SoundEffect | None:
         name = mangled_name
@@ -43,7 +43,7 @@ def add_sound_effect_commands(bot: BababooeyBot):
             name = _strip_leading_emoji(mangled_name)
             # If it's still not a valid name give up.
             if name not in sfx_cache:
-                 return None
+                return None
         return sfx_cache[name]
 
     async def _autocomplete_sound_effect_name(
@@ -63,7 +63,8 @@ def add_sound_effect_commands(bot: BababooeyBot):
         ]
 
     @bot.tree.command()
-    @app_commands.autocomplete(sound_effect_name=_autocomplete_sound_effect_name)
+    @app_commands.autocomplete(sound_effect_name=_autocomplete_sound_effect_name
+                              )
     async def sound(interaction: discord.Interaction, sound_effect_name: str):
         sfx = _locate_sfx(sound_effect_name)
         if sfx is None:
@@ -71,8 +72,10 @@ def add_sound_effect_commands(bot: BababooeyBot):
                 f'I don\'t know a sound effect by the name of `{sound_effect_name}`.'
             )
             return
-        await play_sfx(sfx, requester=interaction.user)
-        await interaction.response.send_message(embed=sound_effect_detail_embed(sfx), view=SoundEffectDetailButtons(sfx))
+        await sfx.play_for(interaction.user)
+        await interaction.response.send_message(
+            embed=sfx.details_embed(),
+            view=SoundEffectDetailButtons(sfx))
 
     @bot.tree.command()
     async def soundboard(interaction: discord.Interaction):

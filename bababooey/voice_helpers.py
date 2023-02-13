@@ -1,15 +1,11 @@
 import asyncio
-import datetime
 
 import discord
-
-from bababooey import SoundEffect
 
 _vc_connection_lock = asyncio.Lock()
 
 # Amount of time to wait after connecting to voice before making noise.
 CONNECTION_WAIT_TIME = 0.5
-
 
 
 def _find_correct_voice_channel(member: discord.Member) -> discord.VoiceChannel:
@@ -60,7 +56,7 @@ def _find_correct_voice_channel(member: discord.Member) -> discord.VoiceChannel:
     raise ValueError('The SFX bot needs the `CONNECT` and `SPEAK` permissions.')
 
 
-async def _ensure_voice(member: discord.Member) -> discord.VoiceClient:
+async def ensure_voice(member: discord.Member) -> discord.VoiceClient:
     guild = member.guild
 
     if _vc_connection_lock.locked():
@@ -83,41 +79,3 @@ async def _ensure_voice(member: discord.Member) -> discord.VoiceClient:
             voice_client = await dest_channel.connect()
             await asyncio.sleep(CONNECTION_WAIT_TIME)
             return voice_client
-
-
-async def play_sfx(sfx: SoundEffect, requester: discord.Member):
-    voice_client = await _ensure_voice(requester)
-
-    ffmpeg_options = ''
-    if sfx.start_time is not None:
-        ffmpeg_options += ' -ss {}'.format(
-            datetime.timedelta(milliseconds=sfx.start_time))
-
-    if sfx.end_time is not None:
-        # Note: ffmpeg doesn't do end_time, instead it uses duration, time after start.
-        if sfx.start_time is not None:
-            ffmpeg_options += ' -t {}'.format(
-                datetime.timedelta(milliseconds=sfx.end_time - sfx.start_time))
-        else:
-            ffmpeg_options += ' -t {}'.format(
-                datetime.timedelta(milliseconds=sfx.end_time))
-
-    # Use FFmpegOpusAudio instead of FFmpegPCMAudio
-    # This is in case the file we are loading is already opus encoded, preventing double-encoding
-    # Consider trying to store audio files in Opus format to decrease load
-
-    # Use before_options to seek to start_time and not read beyond duration
-    # if we instead just use options, it will process the whole file but
-    # drop the unecessary audio on output
-    track = discord.FFmpegOpusAudio(sfx.local_path,
-                                    before_options=ffmpeg_options,
-                                    options='-filter:a loudnorm')
-
-    if voice_client.is_playing():
-        voice_client.stop()
-
-    voice_client.play(track)
-    # TODO: handle disconnect after everyone leaves.
-    # await dc_bomb.burn_for_at_least(60)  # stay connected for 60 seconds
-
-
