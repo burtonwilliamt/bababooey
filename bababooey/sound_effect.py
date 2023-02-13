@@ -11,16 +11,28 @@ class SoundEffect:
         self._raw = raw
 
     @property
-    def name(self):
+    def name(self) -> str:
         return self._raw.name
 
     @property
-    def emoji(self):
+    def emoji(self) -> str:
         return self._raw.emoji
 
     @property
-    def yt_url(self):
+    def yt_url(self) -> str:
         return self._raw.yt_url
+
+    @property
+    def start_millis(self) -> int:
+        return self._raw.start_millis
+
+    @property
+    def end_millis(self) -> int:
+        return self._raw.end_millis
+
+    @property
+    def num(self) -> int:
+        return self._raw.num
 
     async def play_for(self, user: discord.Member):
         voice_client = await ensure_voice(user)
@@ -60,11 +72,10 @@ class SoundEffect:
 
     def details_embed(self) -> discord.Embed:
         description = ''
-        description += f'Start: `{millis_to_str(self._raw.start_millis)}`\n'
-        description += f'End: `{millis_to_str(self._raw.end_millis)}`\n'
-        description += f'Original link: `{self._raw.yt_url}`\n'
+        description += f'Start: `{millis_to_str(self.start_millis)}`\n'
+        description += f'End: `{millis_to_str(self.end_millis)}`\n'
+        description += f'Original link: `{self.yt_url}`\n'
         description += f'Creator: `{self._raw.author}`\n'
         description += f'Created: `{self._raw.created_at}`\n'
-        return discord.Embed(
-            title=f'{self.emoji} {self.name}',
-            description=description)
+        return discord.Embed(title=f'{self.emoji} {self.name}',
+                             description=description)

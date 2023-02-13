@@ -1,3 +1,4 @@
+import re
 import shelve
 
 import discord
@@ -6,12 +7,20 @@ from discord import app_commands
 from bababooey import BababooeyBot, SoundEffect
 from bababooey.ui import make_soundboard_views, SoundEffectDetailButtons
 
+CUSTOM_EMOJI_RE = re.compile(r'<:.+:\d+>')
+
 
 def _read_sfx_data() -> list[SoundEffect]:
     s = shelve.open('data/sfx_data')
     effects = [SoundEffect(raw) for raw in s['data']]
     s.close()
     return effects
+
+
+def _unicode_safe_emoji(discord_emoji: str) -> str:
+    if CUSTOM_EMOJI_RE.match(discord_emoji):
+        return chr(0x1f7e6)
+    return discord_emoji
 
 
 def _sort_sound_effect_name_matches(partial: str, sfx_name: str) -> int:
@@ -30,6 +39,20 @@ def _strip_leading_emoji(sound_effect_name: str) -> str:
     if ' ' not in sound_effect_name:
         return sound_effect_name
     return sound_effect_name.split(' ', 1)[0]
+
+
+class BasicSoundEffectButton(discord.ui.Button):
+
+    def __init__(self, sfx: SoundEffect):
+        super().__init__(style=discord.ButtonStyle.grey,
+                         label=sfx.name,
+                         emoji=sfx.emoji)
+        self.sfx = sfx
+
+    async def callback(self, interaction: discord.Interaction):
+        assert self.view is not None
+        await self.sfx.play_for(interaction.user)
+        await interaction.response.edit_message(view=self.view)
 
 
 def add_sound_effect_commands(bot: BababooeyBot):
@@ -58,24 +81,64 @@ def add_sound_effect_commands(bot: BababooeyBot):
         res.sort(key=lambda sfx: _sort_sound_effect_name_matches(
             partial_sound, sfx.name))
         return [
-            app_commands.Choice(name=sfx.emoji + ' ' + sfx.name, value=sfx.name)
-            for sfx in res[0:25]
+            app_commands.Choice(
+                name=f'{_unicode_safe_emoji(sfx.emoji)} {sfx.name}',
+                value=sfx.name) for sfx in res[0:25]
         ]
 
     @bot.tree.command()
-    @app_commands.autocomplete(sound_effect_name=_autocomplete_sound_effect_name
-                              )
-    async def sound(interaction: discord.Interaction, sound_effect_name: str):
-        sfx = _locate_sfx(sound_effect_name)
+    @app_commands.describe(
+        search='Look for a sound effect by name or tags.',
+        create_button='Set to True if you want a reusable button.')
+    @app_commands.autocomplete(search=_autocomplete_sound_effect_name)
+    async def sound(interaction: discord.Interaction,
+                    search: str,
+                    create_button: bool = False):
+        """Play a sound effect and optionally create a button."""
+        sfx = _locate_sfx(search)
         if sfx is None:
             await interaction.response.send_message(
-                f'I don\'t know a sound effect by the name of `{sound_effect_name}`.'
-            )
+                f'I don\'t know a sound effect by the name of `{search}`.')
             return
+
+        if not create_button:
+            await sfx.play_for(interaction.user)
+            await interaction.response.send_message(
+                f'Played {sfx.emoji}{sfx.name}')
+        else:
+            view = discord.ui.View()
+            view.add_item(BasicSoundEffectButton(sfx))
+            await interaction.response.send_message(view=view)
+
+    @bot.tree.command()
+    @app_commands.describe(search='Look for a sound effect by name or tags.')
+    @app_commands.autocomplete(search=_autocomplete_sound_effect_name)
+    async def x(interaction: discord.Interaction, search: str):
+        """Quick alias for the sound/ command."""
+        sfx = _locate_sfx(search)
+        if sfx is None:
+            await interaction.response.send_message(
+                f'I don\'t know a sound effect by the name of `{search}`.')
+            return
+
         await sfx.play_for(interaction.user)
+        await interaction.response.send_message(f'Played {sfx.emoji}{sfx.name}')
+
+    @bot.tree.command()
+    @app_commands.describe(search='Look for a sound effect by name or tags.')
+    @app_commands.autocomplete(search=_autocomplete_sound_effect_name)
+    async def edit_sound(
+        interaction: discord.Interaction,
+        search: str,
+    ):
+        """Edit a sound effect."""
+        sfx = _locate_sfx(search)
+        if sfx is None:
+            await interaction.response.send_message(
+                f'I don\'t know a sound effect by the name of `{search}`.')
+            return
         await interaction.response.send_message(
-            embed=sfx.details_embed(),
-            view=SoundEffectDetailButtons(sfx))
+            embed=sfx.details_embed(), view=SoundEffectDetailButtons(sfx))
 
     @bot.tree.command()
     async def soundboard(interaction: discord.Interaction):

@@ -13,3 +13,4 @@ class SoundEffectData:
     created_at: datetime.datetime
     start_millis: int = 0
     end_millis: int | None = None
+    tags: str = ''
