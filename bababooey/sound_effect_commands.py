@@ -86,29 +86,8 @@ def add_sound_effect_commands(bot: BababooeyBot):
                 value=sfx.name) for sfx in res[0:25]
         ]
 
-    @bot.tree.command()
-    @app_commands.describe(
-        search='Look for a sound effect by name or tags.',
-        create_button='Set to True if you want a reusable button.')
-    @app_commands.autocomplete(search=_autocomplete_sound_effect_name)
-    async def sound(interaction: discord.Interaction,
-                    search: str,
-                    create_button: bool = False):
-        """Play a sound effect and optionally create a button."""
-        sfx = _locate_sfx(search)
-        if sfx is None:
-            await interaction.response.send_message(
-                f'I don\'t know a sound effect by the name of `{search}`.')
-            return
-
-        if not create_button:
-            await sfx.play_for(interaction.user)
-            await interaction.response.send_message(
-                f'Played {sfx.emoji}{sfx.name}')
-        else:
-            view = discord.ui.View()
-            view.add_item(BasicSoundEffectButton(sfx))
-            await interaction.response.send_message(view=view)
+    # user.id -> discord.Interaction
+    previous_x_interaction = {}
 
     @bot.tree.command()
     @app_commands.describe(search='Look for a sound effect by name or tags.')
@@ -122,7 +101,13 @@ def add_sound_effect_commands(bot: BababooeyBot):
             return
 
         await sfx.play_for(interaction.user)
-        await interaction.response.send_message(f'Played {sfx.emoji}{sfx.name}')
+        view = discord.ui.View()
+        view.add_item(BasicSoundEffectButton(sfx))
+        await interaction.response.send_message(view=view, ephemeral=True)
+        if interaction.user.id in previous_x_interaction:
+            await previous_x_interaction[interaction.user.id
+                                        ].delete_original_response()
+        previous_x_interaction[interaction.user.id] = interaction
 
     @bot.tree.command()
     @app_commands.describe(search='Look for a sound effect by name or tags.')

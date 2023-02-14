@@ -4,6 +4,7 @@ import discord
 
 from bababooey import SoundEffect
 
+
 def _split_every(n, iterable):
     i = iter(iterable)
     piece = list(islice(i, n))
@@ -12,11 +13,22 @@ def _split_every(n, iterable):
         piece = list(islice(i, n))
 
 
+def _num_to_subscript(num: int) -> str:
+    assert num >= 0
+    if num == 0:
+        return chr(0x2080)
+    digits = []
+    while num > 0:
+        digits.insert(0, chr(0x2080 + (num % 10)))
+        num = num // 10
+    return ''.join(digits)
+
+
 class _SimpleSoundEffectButton(discord.ui.Button):
 
     def __init__(self, sfx: SoundEffect, row: int):
         super().__init__(style=discord.ButtonStyle.grey,
-                         label=sfx.name,
+                         label=sfx.name + ' ' + _num_to_subscript(sfx.num),
                          emoji=sfx.emoji,
                          row=row)
         self.sfx = sfx
@@ -36,4 +48,3 @@ def make_soundboard_views(sfx_list: list[SoundEffect]) -> list[discord.ui.View]:
             for sfx in islice(group, 4 * row, 4 * (row + 1)):
                 view.add_item(_SimpleSoundEffectButton(sfx, row))
     return views
-
