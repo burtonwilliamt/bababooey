@@ -6,7 +6,6 @@ Discord Sound Effect Bot
 - [ ] logging for commands
 
 - [ ] check for -1 in sound effects times (set start to 0, end to None)
-- [ ] check for duplicate sound effect names ('yes', maybe others?)
 
 - [ ] actually save edits to sound effects
 - [ ] show errors in the message when invalid input is provided

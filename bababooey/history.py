@@ -36,19 +36,19 @@ class UserSoundEffectHistory:
         self._con.commit()
         cur.close()
 
-    def users_most_recent(self, user: discord.Member, limit: int) -> Sequence[int]:
+    def users_most_recent(self, user: discord.Member,
+                          limit: int) -> Sequence[int]:
         """Returns at most limit number of most recent sfx_nums that user used."""
         cur = self._con.cursor()
         res = [
-            row[0] for row in cur.execute(
-                'SELECT DISTINCT num FROM user_history WHERE user_id=? ORDER BY datetime DESC',
+            row[1] for row in cur.execute(
+                'SELECT MAX(datetime) AS most_recent_use, num FROM user_history WHERE user_id=? GROUP BY num ORDER BY most_recent_use DESC',
                 (user.id,))
         ]
         return res[0:limit]
 
     def fetch_all_history(
-            self
-    ) -> Sequence[tuple[datetime.datetime, int, int, int]]:
+            self) -> Sequence[tuple[datetime.datetime, int, int, int]]:
         """Return all the history.
         
         Each row is in this format:

@@ -1,10 +1,9 @@
-import datetime
 import re
 
 import discord
 from discord import app_commands
 
-from bababooey import BababooeyBot, SoundEffect, Catalog, UserSoundEffectHistory
+from bababooey import BababooeyBot, Catalog
 from bababooey.ui import make_soundboard_views, SoundEffectDetailButtons, SoundEffectButton
 
 CUSTOM_EMOJI_RE = re.compile(r'<:.+:\d+>')
