@@ -12,19 +12,23 @@ class EditSoundEffectModal(discord.ui.Modal):
         self.name = discord.ui.TextInput(label='Name',
                                          placeholder='Bababooey',
                                          max_length=12,
+                                         min_length=1,
                                          default=sfx.name)
         self.start = discord.ui.TextInput(
             label='Start Time',
             placeholder='00:00.0000',
+            max_length=len('00:00.0000'),
             default=millis_to_str(sfx.start_millis))
         self.end = discord.ui.TextInput(
             label='End Time (use none to play until the end)',
             placeholder='None',
+            max_length=len('00:00.0000'),
             default=millis_to_str(sfx.end_millis))
         self.tags = discord.ui.TextInput(
             label='TAGS TO HELP SEARCH FOR THIS SOUND',
             style=discord.TextStyle.paragraph,
-            placeholder='card, now, lets, see, paul, allen, american, psycho')
+            placeholder='card, now, lets, see, paul, allen, american, psycho',
+            default=sfx.tags)
         self.add_item(self.name)
         self.add_item(self.start)
         self.add_item(self.end)

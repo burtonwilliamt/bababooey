@@ -34,6 +34,10 @@ class SoundEffect:
     @property
     def num(self) -> int:
         return self._raw.num
+    
+    @property
+    def tags(self) -> str:
+        return self._raw.tags
 
     async def play_for(self, user: discord.Member):
         voice_client = await ensure_voice(user)

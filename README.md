@@ -3,17 +3,18 @@ Discord Sound Effect Bot
 
 
 ## TODO
-- [ ] logging for commands
-
-- [ ] check for -1 in sound effects times (set start to 0, end to None)
-
-- [ ] actually save edits to sound effects
-- [ ] show errors in the message when invalid input is provided
-- [ ] prevent duplicate names (now that we search using that)
+- [ ] soundboard channel (perminant buttons)
 
 - [ ] add new sound effects
-- [ ] auto-disconnect
+- [ ] prevent duplicate names (now that we search using that)
+- [ ] prevent -1 for start/end, prevent None for start
+- [ ] find a way of selectin emoji
+- [ ] show errors in the message when invalid input is provided
 
-- [ ] soundboard channel (perminant buttons)
+- [ ] logging for commands
+
+- [ ] actually save edits to sound effects
+
+- [ ] auto-disconnect
 
 - [ ] sound effect pallets
