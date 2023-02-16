@@ -39,7 +39,7 @@ class SoundEffect:
         voice_client = await ensure_voice(user)
 
         ffmpeg_options = ''
-        if self._raw.start_millis is not None:
+        if self._raw.start_millis is not None and self._raw.start_millis > 0:
             ffmpeg_options += ' -ss {}'.format(
                 datetime.timedelta(milliseconds=self._raw.start_millis))
 
