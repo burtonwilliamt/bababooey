@@ -1,20 +1,13 @@
+import datetime
 import re
-import shelve
 
 import discord
 from discord import app_commands
 
-from bababooey import BababooeyBot, SoundEffect
-from bababooey.ui import make_soundboard_views, SoundEffectDetailButtons
+from bababooey import BababooeyBot, SoundEffect, Catalog, UserSoundEffectHistory
+from bababooey.ui import make_soundboard_views, SoundEffectDetailButtons, SoundEffectButton
 
 CUSTOM_EMOJI_RE = re.compile(r'<:.+:\d+>')
-
-
-def _read_sfx_data() -> list[SoundEffect]:
-    s = shelve.open('data/sfx_data')
-    effects = [SoundEffect(raw) for raw in s['data']]
-    s.close()
-    return effects
 
 
 def _unicode_safe_emoji(discord_emoji: str) -> str:
@@ -23,67 +16,21 @@ def _unicode_safe_emoji(discord_emoji: str) -> str:
     return discord_emoji
 
 
-def _sort_sound_effect_name_matches(partial: str, sfx_name: str) -> int:
-    """Returns a lower value for closer matches."""
-    exact = sfx_name.find(partial)
-    if exact != -1:
-        return exact
-
-    ignored_case = sfx_name.lower().find(partial.lower())
-    if ignored_case == -1:
-        return -1
-    return ignored_case + 0.5
-
-
-def _strip_leading_emoji(sound_effect_name: str) -> str:
-    if ' ' not in sound_effect_name:
-        return sound_effect_name
-    return sound_effect_name.split(' ', 1)[0]
-
-
-class BasicSoundEffectButton(discord.ui.Button):
-
-    def __init__(self, sfx: SoundEffect):
-        super().__init__(style=discord.ButtonStyle.grey,
-                         label=sfx.name,
-                         emoji=sfx.emoji)
-        self.sfx = sfx
-
-    async def callback(self, interaction: discord.Interaction):
-        assert self.view is not None
-        await self.sfx.play_for(interaction.user)
-        await interaction.response.edit_message(view=self.view)
-
-
 def add_sound_effect_commands(bot: BababooeyBot):
 
-    sfx_cache = {sfx.name: sfx for sfx in _read_sfx_data()}
-
-    def _locate_sfx(mangled_name: str) -> SoundEffect | None:
-        name = mangled_name
-        if name not in sfx_cache:
-            # Sometimes the leading emoji comes through sometimes it doesn't.
-            name = _strip_leading_emoji(mangled_name)
-            # If it's still not a valid name give up.
-            if name not in sfx_cache:
-                return None
-        return sfx_cache[name]
+    catalog = Catalog()
 
     async def _autocomplete_sound_effect_name(
             interaction: discord.Interaction,
             partial_sound: str) -> list[app_commands.Choice[str]]:
-        partial_sound_lower = partial_sound.lower()
-        res = []
-        for name, sfx in sfx_cache.items():
-            if partial_sound_lower in name.lower():
-                res.append(sfx)
-
-        res.sort(key=lambda sfx: _sort_sound_effect_name_matches(
-            partial_sound, sfx.name))
+        if partial_sound == '':
+            matches = catalog.users_most_recent(interaction.user, 25)
+        else:
+            matches = catalog.find_partial_matches(partial_sound)
         return [
             app_commands.Choice(
                 name=f'{_unicode_safe_emoji(sfx.emoji)} {sfx.name}',
-                value=sfx.name) for sfx in res[0:25]
+                value=sfx.name) for sfx in matches[0:25]
         ]
 
     # user.id -> discord.Interaction
@@ -93,17 +40,24 @@ def add_sound_effect_commands(bot: BababooeyBot):
     @app_commands.describe(search='Look for a sound effect by name or tags.')
     @app_commands.autocomplete(search=_autocomplete_sound_effect_name)
     async def x(interaction: discord.Interaction, search: str):
-        """Quick alias for the sound/ command."""
-        sfx = _locate_sfx(search)
+        """Play a sound effect."""
+        sfx = catalog.by_name(search)
         if sfx is None:
             await interaction.response.send_message(
                 f'I don\'t know a sound effect by the name of `{search}`.')
             return
 
+        # Play the requested sound effect.
         await sfx.play_for(interaction.user)
+
+        # Collect the recent sounds to display.
+        recent_sfx = catalog.users_most_recent(interaction.user, 5)
         view = discord.ui.View()
-        view.add_item(BasicSoundEffectButton(sfx))
+        for i, sfx in enumerate(reversed(recent_sfx)):
+            view.add_item(SoundEffectButton(sfx, row=i))
         await interaction.response.send_message(view=view, ephemeral=True)
+
+        # Delete the previous /x message to keep chat clean.
         if interaction.user.id in previous_x_interaction:
             await previous_x_interaction[interaction.user.id
                                         ].delete_original_response()
@@ -117,7 +71,7 @@ def add_sound_effect_commands(bot: BababooeyBot):
         search: str,
     ):
         """Edit a sound effect."""
-        sfx = _locate_sfx(search)
+        sfx = catalog.by_name(search)
         if sfx is None:
             await interaction.response.send_message(
                 f'I don\'t know a sound effect by the name of `{search}`.')
@@ -127,7 +81,8 @@ def add_sound_effect_commands(bot: BababooeyBot):
 
     @bot.tree.command()
     async def soundboard(interaction: discord.Interaction):
-        views = make_soundboard_views(list(sfx_cache.values()))
+        """Print a full soundboard."""
+        views = make_soundboard_views(catalog.all())
         first_view = views.pop(0)
         # Respond to the interaciton with the first message.
         await interaction.response.send_message(view=first_view)
@@ -135,3 +90,21 @@ def add_sound_effect_commands(bot: BababooeyBot):
         # Send the rest of the messages.
         for view in views:
             await interaction.channel.send(view=view)
+
+    @bot.tree.command()
+    async def history(interaction: discord.Interaction):
+        """See the global sound effect history."""
+        await interaction.response.defer()
+        lines = []
+        for dt, user_id, _, sfx in catalog.all_history()[0:20]:
+            # Try to use the cache first.
+            user = interaction.guild.get_member(user_id)
+            if user is None:
+                # This can be slow, hopefully we only have to do this once per
+                # user_id.
+                user = await interaction.guild.fetch_member(user_id)
+            lines.append(
+                f'`{dt:%H:%M:%S}` {sfx.emoji}`{sfx.name:>12}` {user.display_name}'
+            )
+
+        await interaction.followup.send('\n'.join(lines))

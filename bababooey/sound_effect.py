@@ -2,13 +2,14 @@ import datetime
 
 import discord
 
-from bababooey import SoundEffectData, ensure_voice, millis_to_str
+from bababooey import SoundEffectData, UserSoundEffectHistory, ensure_voice, millis_to_str
 
 
 class SoundEffect:
 
-    def __init__(self, raw: SoundEffectData):
+    def __init__(self, raw: SoundEffectData, history: UserSoundEffectHistory):
         self._raw = raw
+        self._history = history
 
     @property
     def name(self) -> str:
@@ -67,6 +68,7 @@ class SoundEffect:
             voice_client.stop()
 
         voice_client.play(track)
+        self._history.record_usage(user, self.num)
         # TODO: handle disconnect after everyone leaves.
         # await dc_bomb.burn_for_at_least(60)  # stay connected for 60 seconds
 
