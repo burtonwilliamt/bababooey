@@ -24,8 +24,8 @@ class BababooeyCog(discord.ext.commands.Cog):
     def __init__(self, bot: BababooeyBot):
         self.bot = bot
         self.catalog = Catalog()
-        # user.id -> discord.Interaction
-        self._previous_x_interactions = {}
+        # user.id -> discord.Message
+        self._previous_x_messages: dict[int, discord.Message] = {}
 
     async def _autocomplete_sound_effect_name(
             self, interaction: discord.Interaction,
@@ -59,13 +59,31 @@ class BababooeyCog(discord.ext.commands.Cog):
         view = discord.ui.View()
         for i, sfx in enumerate(reversed(recent_sfx)):
             view.add_item(SoundEffectButton(sfx, row=i))
+        # Create the /x interface.
         await interaction.response.send_message(view=view, ephemeral=True)
+        
+        # Handle message cleanup code.
+        x_message = await interaction.original_response()
+        user_id = interaction.user.id
 
-        # Delete the previous /x message to keep chat clean.
-        if interaction.user.id in self._previous_x_interactions:
-            await self._previous_x_interactions[interaction.user.id
-                                        ].delete_original_response()
-        self._previous_x_interactions[interaction.user.id] = interaction
+        # NOTE: If one of the above `await` calls takes a long time, a more 
+        # recent x/ command might have made it into _previous_x_messages. In
+        # that case we don't want to delete it, rather we want to delete our
+        # x/ message.
+        if user_id in self._previous_x_messages and self._previous_x_messages[user_id].created_at > x_message.created_at:
+            await x_message.delete()
+            return
+
+        # Pop previous message from the dict before doing an async operation on
+        # it. This avoids two threads both calling .delete() simultaneously.
+        previous_msg = self._previous_x_messages.pop(user_id, None) 
+        # Assign previous x messages before doing async operation so we're sure
+        # we aren't overwriting an assignment from another thread.
+        # (Ensuring this is atomic with the above line.)
+        self._previous_x_messages[user_id] = x_message
+        if previous_msg is not None:
+            await previous_msg.delete()
+
 
     @app_commands.command()
     @app_commands.describe(search='Look for a sound effect by name or tags.')
