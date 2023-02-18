@@ -13,6 +13,5 @@ from .sound_effect import SoundEffect
 # Depends on SoundEffect
 from .catalog import Catalog
 
-# Depend BababooeyBot
+# Depend on BababooeyBot
 from .admin_commands import add_admin_commands
-from .sound_effect_commands import add_sound_effect_commands

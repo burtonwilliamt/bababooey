@@ -1,4 +1,5 @@
 import discord
+import discord.ext.commands
 from discord import app_commands
 
 class BababooeyBot(discord.Client):
@@ -24,3 +25,17 @@ class BababooeyBot(discord.Client):
                 await self.tree.sync(guild=discord.Object(id=guild_id))
         else:
             pass
+
+    # Lightweight re-implementation of discord.ext.commands.Bot.add_cog
+    # We only care about the app commands inside the cog, not any other type of
+    # command/command group.
+    #
+    # We don't want to inherit from discord.ext.commands.Bot because that type
+    # of bot requires a prefix in addition to supporting slash commands which is
+    # more than we want.
+    # We have to re-implement because we inherit from discord.Client instead.
+    #
+    # TODO: Also loop over the cog listeners and add those.
+    def add_cog(self, cog: discord.ext.commands.Cog):
+        for cmd in cog.get_app_commands():
+            self.tree.add_command(cmd)

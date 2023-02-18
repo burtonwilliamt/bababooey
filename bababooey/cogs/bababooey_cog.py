@@ -2,6 +2,7 @@ import re
 
 import discord
 from discord import app_commands
+import discord.ext.commands
 
 from bababooey import BababooeyBot, Catalog
 from bababooey.ui import make_soundboard_views, SoundEffectDetailButtons, SoundEffectButton
@@ -16,32 +17,35 @@ def _unicode_safe_emoji(discord_emoji: str) -> str:
     return discord_emoji
 
 
-def add_sound_effect_commands(bot: BababooeyBot):
+class BababooeyCog(discord.ext.commands.Cog):
+    """Collection of sound effects and the commands to use them."""
+    
 
-    catalog = Catalog()
+    def __init__(self, bot: BababooeyBot):
+        self.bot = bot
+        self.catalog = Catalog()
+        # user.id -> discord.Interaction
+        self._previous_x_interactions = {}
 
     async def _autocomplete_sound_effect_name(
-            interaction: discord.Interaction,
+            self, interaction: discord.Interaction,
             partial_sound: str) -> list[app_commands.Choice[str]]:
         if partial_sound == '':
-            matches = catalog.users_most_recent(interaction.user, 25)
+            matches = self.catalog.users_most_recent(interaction.user, 25)
         else:
-            matches = catalog.find_partial_matches(partial_sound)
+            matches = self.catalog.find_partial_matches(partial_sound)
         return [
             app_commands.Choice(
                 name=f'{_unicode_safe_emoji(sfx.emoji)} {sfx.name}',
                 value=sfx.name) for sfx in matches[0:25]
         ]
 
-    # user.id -> discord.Interaction
-    previous_x_interaction = {}
-
-    @bot.tree.command()
+    @app_commands.command()
     @app_commands.describe(search='Look for a sound effect by name or tags.')
     @app_commands.autocomplete(search=_autocomplete_sound_effect_name)
-    async def x(interaction: discord.Interaction, search: str):
+    async def x(self, interaction: discord.Interaction, search: str):
         """Play a sound effect."""
-        sfx = catalog.by_name(search)
+        sfx = self.catalog.by_name(search)
         if sfx is None:
             await interaction.response.send_message(
                 f'I don\'t know a sound effect by the name of `{search}`.')
@@ -51,27 +55,28 @@ def add_sound_effect_commands(bot: BababooeyBot):
         await sfx.play_for(interaction.user)
 
         # Collect the recent sounds to display.
-        recent_sfx = catalog.users_most_recent(interaction.user, 5)
+        recent_sfx = self.catalog.users_most_recent(interaction.user, 5)
         view = discord.ui.View()
         for i, sfx in enumerate(reversed(recent_sfx)):
             view.add_item(SoundEffectButton(sfx, row=i))
         await interaction.response.send_message(view=view, ephemeral=True)
 
         # Delete the previous /x message to keep chat clean.
-        if interaction.user.id in previous_x_interaction:
-            await previous_x_interaction[interaction.user.id
+        if interaction.user.id in self._previous_x_interactions:
+            await self._previous_x_interactions[interaction.user.id
                                         ].delete_original_response()
-        previous_x_interaction[interaction.user.id] = interaction
+        self._previous_x_interactions[interaction.user.id] = interaction
 
-    @bot.tree.command()
+    @app_commands.command()
     @app_commands.describe(search='Look for a sound effect by name or tags.')
     @app_commands.autocomplete(search=_autocomplete_sound_effect_name)
     async def edit_sound(
+        self,
         interaction: discord.Interaction,
         search: str,
     ):
         """Edit a sound effect."""
-        sfx = catalog.by_name(search)
+        sfx = self.catalog.by_name(search)
         if sfx is None:
             await interaction.response.send_message(
                 f'I don\'t know a sound effect by the name of `{search}`.')
@@ -79,16 +84,16 @@ def add_sound_effect_commands(bot: BababooeyBot):
         await interaction.response.send_message(
             embed=sfx.details_embed(), view=SoundEffectDetailButtons(sfx))
 
-    @bot.tree.command()
-    async def sync_soundboard(interaction: discord.Interaction):
+    @app_commands.command()
+    async def sync_soundboard(self, interaction: discord.Interaction):
         """Redraw the soundboard channel."""
         if interaction.guild.id not in SOUNDBOARD_CHANNELS:
             await interaction.response.send_message(
                 'This server does not have a soundboard channel configured.')
-        soundboard_channel = await bot.fetch_channel(
+        soundboard_channel = await self.bot.fetch_channel(
             SOUNDBOARD_CHANNELS[interaction.guild.id])
         await interaction.response.defer()
-        views = make_soundboard_views(catalog.all(), interaction.guild_id)
+        views = make_soundboard_views(self.catalog.all(), interaction.guild_id)
         
         # Check the history in that channel.
         expected_number_of_messages = len(views)
@@ -110,7 +115,7 @@ def add_sound_effect_commands(bot: BababooeyBot):
         # Similarly, if there are some messages sent by someone other than the
         # bot, we know it's something we didn't create so preserve it.
         for msg in messages:
-            if msg.author.id != bot.user.id:
+            if msg.author.id != self.bot.user.id:
                 await interaction.followup.send(
                     f'Someone else sent messages in {soundboard_channel}, '
                     'just to be safe I don\'t want to delete the history.'
@@ -126,12 +131,12 @@ def add_sound_effect_commands(bot: BababooeyBot):
         await interaction.followup.send(
             f'Sent a fresh soundboard in {soundboard_channel}')
 
-    @bot.tree.command()
-    async def history(interaction: discord.Interaction):
+    @app_commands.command()
+    async def history(self, interaction: discord.Interaction):
         """See the global sound effect history."""
         await interaction.response.defer()
         lines = []
-        for dt, user_id, _, sfx in catalog.all_history()[0:20]:
+        for dt, user_id, _, sfx in self.catalog.all_history()[0:20]:
             # Try to use the cache first.
             user = interaction.guild.get_member(user_id)
             if user is None:
