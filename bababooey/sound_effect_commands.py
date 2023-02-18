@@ -5,6 +5,7 @@ from discord import app_commands
 
 from bababooey import BababooeyBot, Catalog
 from bababooey.ui import make_soundboard_views, SoundEffectDetailButtons, SoundEffectButton
+from settings import SOUNDBOARD_CHANNELS
 
 CUSTOM_EMOJI_RE = re.compile(r'<:.+:\d+>')
 
@@ -79,16 +80,51 @@ def add_sound_effect_commands(bot: BababooeyBot):
             embed=sfx.details_embed(), view=SoundEffectDetailButtons(sfx))
 
     @bot.tree.command()
-    async def soundboard(interaction: discord.Interaction):
-        """Print a full soundboard."""
-        views = make_soundboard_views(catalog.all())
-        first_view = views.pop(0)
-        # Respond to the interaciton with the first message.
-        await interaction.response.send_message(view=first_view)
+    async def sync_soundboard(interaction: discord.Interaction):
+        """Redraw the soundboard channel."""
+        if interaction.guild.id not in SOUNDBOARD_CHANNELS:
+            await interaction.response.send_message(
+                'This server does not have a soundboard channel configured.')
+        soundboard_channel = await bot.fetch_channel(
+            SOUNDBOARD_CHANNELS[interaction.guild.id])
+        await interaction.response.defer()
+        views = make_soundboard_views(catalog.all(), interaction.guild_id)
+        
+        # Check the history in that channel.
+        expected_number_of_messages = len(views)
+        messages = [
+            msg async for msg in soundboard_channel.history(
+                limit=expected_number_of_messages + 1)
+        ]
+        # If there is a lot of messages (more than a soundboard), then maybe the
+        # channel was used by something else first. Avoid deleting all the
+        # messages to preserve people's history.
+        if len(messages) > expected_number_of_messages:
+            await interaction.followup.send(
+                'There are more than the expected number of messages '
+                f'({expected_number_of_messages}) in {soundboard_channel}, '
+                'just to be safe I don\'t want to delete the history.'
+            )
+            return
 
-        # Send the rest of the messages.
+        # Similarly, if there are some messages sent by someone other than the
+        # bot, we know it's something we didn't create so preserve it.
+        for msg in messages:
+            if msg.author.id != bot.user.id:
+                await interaction.followup.send(
+                    f'Someone else sent messages in {soundboard_channel}, '
+                    'just to be safe I don\'t want to delete the history.'
+                )
+                return
+
+        for msg in messages:
+            await msg.delete()
+
         for view in views:
-            await interaction.channel.send(view=view)
+            await soundboard_channel.send(view=view)
+
+        await interaction.followup.send(
+            f'Sent a fresh soundboard in {soundboard_channel}')
 
     @bot.tree.command()
     async def history(interaction: discord.Interaction):

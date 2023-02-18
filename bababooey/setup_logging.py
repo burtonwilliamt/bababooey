@@ -3,6 +3,9 @@ import logging
 
 import discord
 
+# TODO: Filter the "ffmpeg process %s succefully terminated" messages.
+# TODO: Figure out why there are format strings in the text log, and remove them.
+
 
 def check_or_create_logs_dir():
     if not os.path.exists('logs/'):

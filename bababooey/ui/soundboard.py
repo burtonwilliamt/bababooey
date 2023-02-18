@@ -16,12 +16,12 @@ def _split_every(group_size: int,
 
 
 def make_soundboard_views(
-        sfx_list: Sequence[SoundEffect]) -> Sequence[discord.ui.View]:
+        sfx_list: Sequence[SoundEffect], guild_id:int) -> Sequence[discord.ui.View]:
     views = []
     for group in _split_every(20, sfx_list):
-        view = discord.ui.View()
+        view = discord.ui.View(timeout=None)
         views.append(view)
         for row, sfx_in_row in enumerate(_split_every(4, group)):
             for sfx in sfx_in_row:
-                view.add_item(SoundEffectButton(sfx, row))
+                view.add_item(SoundEffectButton(sfx, row, custom_id=f'persistent_soundboard:{guild_id}:{sfx.num}'))
     return views
