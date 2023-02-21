@@ -64,6 +64,9 @@ class BababooeyCog(discord.ext.commands.Cog):
         
         # Handle message cleanup code.
         x_message = await interaction.original_response()
+        # Above is just an interaction webhook which timesout. The below is a
+        # not time limited.
+        x_message = await interaction.channel.fetch_message(x_message.id)
         user_id = interaction.user.id
 
         # NOTE: If one of the above `await` calls takes a long time, a more 
