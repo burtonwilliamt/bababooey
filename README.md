@@ -3,7 +3,6 @@ Discord Sound Effect Bot
 
 
 ## TODO
-- [ ] soundboard channel (perminant buttons)
 
 - [ ] add new sound effects
   - [ ] find a way of selecting emoji
@@ -11,6 +10,8 @@ Discord Sound Effect Bot
   - [ ] prevent -1 for start/end, prevent None for start
   - [ ] show errors in the message when invalid input is provided
 - [ ] actually save edits to sound effects
+
+- [ ] soundboard channel (perminant buttons)
 
 - [ ] logging for commands
 - [ ] import the sound effect history from old logs

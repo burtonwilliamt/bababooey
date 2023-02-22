@@ -1,50 +1,60 @@
+from typing import Callable, Awaitable
+
 import discord
 
-from bababooey import SoundEffect
+from bababooey import SoundEffectData, play_file_for
 from bababooey.ui import EditSoundEffectModal
 
 
 class _PlaySoundEffectButton(discord.ui.Button):
 
-    def __init__(self, sfx: SoundEffect):
+    def __init__(self, sfx_data: SoundEffectData):
         super().__init__(style=discord.ButtonStyle.green,
                          label='Play',
                          emoji=chr(0x25b6) + chr(0xfe0f))
-        self.sfx = sfx
+        self.sfx_data = sfx_data
 
     async def callback(self, interaction: discord.Interaction):
-        assert self.view is not None
-        await self.sfx.play_for(interaction.user)
+        await play_file_for(user=interaction.user,
+                            file_path=self.sfx_data.file_path,
+                            start_millis=self.sfx_data.start_millis,
+                            end_millis=self.sfx_data.end_millis)
         await interaction.response.edit_message(view=self.view)
 
 
 class _SoundEffectSauceButton(discord.ui.Button):
 
-    def __init__(self, sfx: SoundEffect):
-        super().__init__(style=discord.ButtonStyle.link,
-                         label='Sauce',
-                         url=sfx.yt_url,
-                         emoji=chr(0x1f517))
+    def __init__(self, sfx_data: SoundEffectData):
+        super().__init__(
+            style=discord.ButtonStyle.link,
+            label='Sauce',
+            # TODO: Include the ?t=123 url argument for exact sound effect timestamp.
+            url=sfx_data.yt_url,
+            emoji=chr(0x1f517))
 
 
 class _EditSoundEffectButton(discord.ui.Button):
 
-    def __init__(self, sfx: SoundEffect):
+    def __init__(self, sfx_data: SoundEffectData,
+                 edit_callback: Callable[[], Awaitable[None]]):
         super().__init__(style=discord.ButtonStyle.grey,
                          label='Edit',
                          emoji=chr(0x270f) + chr(0xfe0f))
-        self.sfx = sfx
+        self.sfx_data = sfx_data
+        self.edit_callback = edit_callback
 
     async def callback(self, interaction: discord.Interaction):
-        assert self.view is not None
         await interaction.response.send_modal(
-            EditSoundEffectModal(self.sfx, original_view=self.view))
+            EditSoundEffectModal(self.sfx_data,
+                                 original_view=self.view,
+                                 edit_callback=self.edit_callback))
 
 
 class SoundEffectDetailButtons(discord.ui.View):
 
-    def __init__(self, sfx: SoundEffect):
+    def __init__(self, sfx_data: SoundEffectData,
+                 edit_callback: Callable[[], Awaitable[None]]):
         super().__init__()
-        self.add_item(_PlaySoundEffectButton(sfx))
-        self.add_item(_SoundEffectSauceButton(sfx))
-        self.add_item(_EditSoundEffectButton(sfx))
+        self.add_item(_PlaySoundEffectButton(sfx_data))
+        self.add_item(_SoundEffectSauceButton(sfx_data))
+        self.add_item(_EditSoundEffectButton(sfx_data, edit_callback))

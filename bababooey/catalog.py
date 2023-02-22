@@ -85,8 +85,11 @@ class Catalog:
         ]
 
     def all_history(
-        self
-    ) -> Sequence[tuple[datetime.datetime, int, int, SoundEffect]]:
+            self) -> Sequence[tuple[datetime.datetime, int, int, SoundEffect]]:
         """Returns sequence of (datetime, user_id, guild_id, SoundEffect)."""
         return [(dt, user_id, guild_id, self.by_num(sfx_num)) for dt, user_id,
                 guild_id, sfx_num in self._history.fetch_all_history()]
+
+    def create(self, name: str, emoji: str, youtube_url: str, file_path: str,
+               author: discord.Member) -> SoundEffect:
+        pass

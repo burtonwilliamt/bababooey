@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 
 import discord
 
@@ -79,3 +80,40 @@ async def ensure_voice(member: discord.Member) -> discord.VoiceClient:
             voice_client = await dest_channel.connect()
             await asyncio.sleep(CONNECTION_WAIT_TIME)
             return voice_client
+
+
+async def play_file_for(user: discord.Member, file_path: str, start_millis: int, end_millis: int | None) -> None:
+    voice_client = await ensure_voice(user)
+
+    ffmpeg_options = ''
+    if start_millis is not None and start_millis > 0:
+        ffmpeg_options += ' -ss {}'.format(
+            datetime.timedelta(milliseconds=start_millis))
+
+    if end_millis is not None:
+        # Note: ffmpeg doesn't do end_time, instead it uses duration, time after start.
+        if start_millis is not None:
+            ffmpeg_options += ' -t {}'.format(
+                datetime.timedelta(milliseconds=end_millis -
+                                    start_millis))
+        else:
+            ffmpeg_options += ' -t {}'.format(
+                datetime.timedelta(milliseconds=end_millis))
+
+    # Use FFmpegOpusAudio instead of FFmpegPCMAudio
+    # This is in case the file we are loading is already opus encoded, preventing double-encoding
+    # Consider trying to store audio files in Opus format to decrease load
+
+    # Use before_options to seek to start_time and not read beyond duration
+    # if we instead just use options, it will process the whole file but
+    # drop the unecessary audio on output
+    track = discord.FFmpegOpusAudio(file_path,
+                                    before_options=ffmpeg_options,
+                                    options='-filter:a loudnorm')
+
+    if voice_client.is_playing():
+        voice_client.stop()
+
+    voice_client.play(track)
+    # TODO: handle disconnect after everyone leaves.
+    # await dc_bomb.burn_for_at_least(60)  # stay connected for 60 seconds
