@@ -3,6 +3,8 @@ import discord
 
 from bababooey import SoundEffectData, millis_to_str
 
+EXAMPLE_TIMES = '0 or 0.042 or 69 or 1:09 or '
+
 
 class EditSoundEffectModal(discord.ui.Modal):
 
@@ -18,18 +20,18 @@ class EditSoundEffectModal(discord.ui.Modal):
                                          max_length=12,
                                          min_length=1,
                                          default=sfx.name)
-        self.start = discord.ui.TextInput(label='Start Time',
-                                          placeholder='00:00.000',
-                                          max_length=len('00:00.000'),
-                                          default=millis_to_str(
-                                              sfx.start_millis),
-                                          required=False)
-        self.end = discord.ui.TextInput(
-            label='End Time (use none to play until the end)',
-            placeholder='None',
+        self.start = discord.ui.TextInput(
+            label='Start Time',
+            placeholder=EXAMPLE_TIMES + '00:00.000',
             max_length=len('00:00.000'),
-            default=millis_to_str(sfx.end_millis),
+            default=millis_to_str(sfx.start_millis),
             required=False)
+        self.end = discord.ui.TextInput(label='End Time',
+                                        placeholder=EXAMPLE_TIMES +
+                                        millis_to_str(sfx.end_millis),
+                                        max_length=len('00:00.000'),
+                                        default=millis_to_str(sfx.end_millis),
+                                        required=False)
         self.tags = discord.ui.TextInput(
             label='TAGS TO HELP SEARCH FOR THIS SOUND',
             style=discord.TextStyle.paragraph,

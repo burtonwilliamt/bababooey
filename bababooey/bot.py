@@ -13,6 +13,7 @@ class BababooeyBot(discord.Client):
         self.tree = app_commands.CommandTree(self)
         self.guild_ids = guild_ids
         self.force_command_sync = force_command_sync
+        self.extra_events = {}
 
     async def setup_hook(self):
         if self.force_command_sync:
@@ -35,7 +36,19 @@ class BababooeyBot(discord.Client):
     # more than we want.
     # We have to re-implement because we inherit from discord.Client instead.
     #
-    # TODO: Also loop over the cog listeners and add those.
     def add_cog(self, cog: discord.ext.commands.Cog):
         for cmd in cog.get_app_commands():
             self.tree.add_command(cmd)
+        for name, listener in cog.get_listeners():
+            if name not in self.extra_events:
+                self.extra_events[name] = []
+            self.extra_events[name].append(listener)
+
+    # Client does not support extra listeners very well. This is a copy of
+    # discord.ext.commands.Bot.dispatch which mostly just calls super() but will
+    # also dispatch to our extra_events.
+    def dispatch(self, event_name: str, *args, **kwargs):
+        super().dispatch(event_name, *args, **kwargs)
+        ev = 'on_' + event_name
+        for event in self.extra_events.get(ev, []):
+            self._schedule_event(event, ev, *args, **kwargs)

@@ -21,7 +21,7 @@ Discord Sound Effect Bot
 - [ ] logging for commands
 - [ ] import the sound effect history from old logs
 
-- [ ] auto-disconnect
 - [ ] productionize
+- [ ] When you request while not in a voice chanel, it should join whatever has people.
 
 - [ ] sound effect pallets

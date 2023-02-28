@@ -90,6 +90,12 @@ class BababooeyCog(discord.ext.commands.Cog):
         # user.id -> discord.Message
         self._previous_x_messages: dict[int, discord.Message] = {}
 
+    @discord.ext.commands.Cog.listener()
+    async def on_ready(self):
+        for guild_id in SOUNDBOARD_CHANNELS:
+            for view in make_soundboard_views(self.catalog.all(), guild_id):
+                self.bot.add_view(view)
+
     async def _autocomplete_sound_effect_name(
             self, interaction: discord.Interaction,
             partial_sound: str) -> list[app_commands.Choice[str]]:
@@ -271,7 +277,7 @@ class BababooeyCog(discord.ext.commands.Cog):
             guild=interaction.guild.id,
             created_at=datetime.datetime.now(tz=datetime.timezone.utc),
             start_millis=0,
-            end_millis=None,
+            end_millis=duration_millis,
             tags=f'{name},')
 
         creation_manager = SoundEffectCreationManager(
