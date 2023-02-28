@@ -241,7 +241,7 @@ class BababooeyCog(discord.ext.commands.Cog):
 
     @app_commands.command()
     async def add_sound(self, interaction: discord.Interaction,
-                        youtube_url: str, name: str, emoji: str):
+                        youtube_url: str, name: app_commands.Range[str, 1, 12], emoji: str):
         """Create a new sound effect.
         
         Args:
@@ -283,5 +283,6 @@ class BababooeyCog(discord.ext.commands.Cog):
         creation_manager = SoundEffectCreationManager(
             partial_sfx_data=partial_sfx_data,
             original_interaction=interaction,
-            voice_client_manager=self.voice_client_manager)
+            voice_client_manager=self.voice_client_manager,
+            catalog=self.catalog)
         await creation_manager.send_initial_message()

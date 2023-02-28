@@ -5,23 +5,24 @@ Discord Sound Effect Bot
 ## TODO
 
 - [ ] add new sound effects
-  - [ ] Sanitize input (if something is wrong, show an error).
-  - [ ] Check errors in the message when invalid input is provided
   - [ ] Save button
+  - [ ] Waveform image (https://stackoverflow.com/questions/32254818/generating-a-waveform-using-ffmpeg)
   - [ ] Cancel button (with file cleanup and message deletion)
-  - [ ] Pre-populate the End with the total length of the sound effect.
   - [ ] Check the length before doing download.
-  - [ ] Try to limit sfx length in the initial slash command
 
 - [ ] Auto re-draw the soundboard on launch (or check contents)
 
 - [ ] History includes the date, formats to ET
-- [ ] History refreshes
 
 - [ ] logging for commands
 - [ ] import the sound effect history from old logs
 
-- [ ] productionize
-- [ ] When you request while not in a voice chanel, it should join whatever has people.
 
+## Bugs
+- [ ] When you request while not in a voice channel, it should join whatever has people.
+
+## Distant features
 - [ ] sound effect pallets
+- [ ] sound effect combos chain multiple sound effects together 
+- [ ] command to generate sound effect usage graphs
+- [ ] History refreshes (maybe at the bottom of the soundboar channel)
