@@ -1,7 +1,9 @@
 import asyncio
 import copy
+import logging
 import os
 import pathlib
+import subprocess
 from typing import Callable, Awaitable
 
 import discord
@@ -11,6 +13,8 @@ from bababooey.ui import EditSoundEffectModal
 
 MAX_SOUND_EFFECT_NAME_LENGTH = 12
 MIN_SOUND_EFFECT_NAME_LENGTH = 1
+
+_log = logging.getLogger(__name__)
 
 
 class _PlaySoundEffectButton(discord.ui.Button):
@@ -60,7 +64,9 @@ class SoundEffectCreationManager:
         self.voice_client_manager = voice_client_manager
         self.catalog = catalog
 
-    def create_embed(self, error: str | None = None) -> discord.Embed:
+    def create_embed(self,
+                     use_attached_image: bool,
+                     error: str | None = None) -> discord.Embed:
         e = discord.Embed(
             title=f'{self.partial_sfx_data.emoji} {self.partial_sfx_data.name}')
         e.add_field(
@@ -76,10 +82,12 @@ class SoundEffectCreationManager:
             f'({self.partial_sfx_data.yt_url})\n'
             f'Tags:\n```\n{self.partial_sfx_data.tags if self.partial_sfx_data.tags != "" else "No Tags Provided."}\n```'
         )
-        e.set_image(url='attachment://image.png')
+        if use_attached_image:
+            e.set_image(url='attachment://image.png')
         if error is not None:
-            e.description = (f'```diff\n-ERROR\n-' + '\n-'.join(error.splitlines()) +
-                             '\n```' + e.description)
+            e.description = (f'```diff\n-ERROR\n-' +
+                             '\n-'.join(error.splitlines()) + '\n```' +
+                             e.description)
         return e
 
     def create_view(self) -> discord.ui.View:
@@ -91,19 +99,32 @@ class SoundEffectCreationManager:
             _EditSoundEffectButton(self.partial_sfx_data, self.edit_callback))
         return view
 
-    async def generate_waveform(self) -> discord.File:
+    async def generate_waveform(self) -> discord.File | None:
         os.makedirs('data/tmp/', exist_ok=True)
-        image_path = 'data/tmp/' + pathlib.Path(self.partial_sfx_data.file_path).stem + '.png'
-        print(f'making file in: {image_path}')
+        image_path = 'data/tmp/' + pathlib.Path(
+            self.partial_sfx_data.file_path).stem + '.png'
         command = f'yes | ffmpeg -i {self.partial_sfx_data.file_path} -filter_complex "compand, showwavespic=colors=#5865F2|#5865F2:split_channels=1, drawbox=x=iw*{self.partial_sfx_data.start_millis/self.duration}:y=0:w=iw*{(self.partial_sfx_data.end_millis-self.partial_sfx_data.start_millis)/self.duration}:h=ih:t=fill:color=#57f287" -frames:v 1 {image_path}'
-        proc = await asyncio.create_subprocess_shell(command)
+        proc = await asyncio.create_subprocess_shell(command,
+                                                     stderr=subprocess.PIPE,
+                                                     stdout=subprocess.PIPE)
         # TODO: detect if this command fails and handle correctly.
-        await proc.communicate()
+        stdout, stderr = await proc.communicate()
+        if proc.returncode != 0:
+            _log.error('FFMPEG failed. Here is the stderr: %s', stderr.decode())
+            return None
         return discord.File(image_path, filename='image.png')
 
     async def send_initial_message(self) -> None:
-        await self.original_interaction.followup.send(embed=self.create_embed(),
-                                                      view=self.create_view(), file=await self.generate_waveform())
+        waveform = await self.generate_waveform()
+        if waveform is None:
+            await self.original_interaction.followup.send(
+                embed=self.create_embed(use_attached_image=False),
+                view=self.create_view())
+        else:
+            await self.original_interaction.followup.send(
+                embed=self.create_embed(use_attached_image=True),
+                view=self.create_view(),
+                file=waveform)
 
     def sanitize_input(self, name: str, start_str: str, end_str: str | None,
                        tags: str | None) -> SoundEffectData | str:
@@ -142,6 +163,17 @@ class SoundEffectCreationManager:
         else:
             return errors
 
+    async def edit_original_response(self, error: str = None) -> None:
+        waveform = await self.generate_waveform()
+        if waveform is None:
+            attachments = []
+        else:
+            attachments = [waveform]
+
+        embed = self.create_embed(use_attached_image=waveform is not None, error=error)
+        await self.original_interaction.edit_original_response(
+            embed=embed, view=self.create_view(), attachments=attachments)
+
     async def edit_callback(self, name: str, start_str: str,
                             end_str: str | None, tags: str | None) -> None:
         # If we are successful, we'll assign temp_sfx_data to equal
@@ -150,15 +182,16 @@ class SoundEffectCreationManager:
         res = self.sanitize_input(name, start_str, end_str, tags)
         # If the sanitization failed, edit the message to show the error.
         if isinstance(res, str):
-            await self.original_interaction.edit_original_response(
-                embed=self.create_embed(error=res), view=self.create_view(), attachments=[await self.generate_waveform()])
-            return
+            await self.edit_original_response(error=res)
+        elif isinstance(res, SoundEffectData):
+            self.partial_sfx_data = res
+            await self.edit_original_response()
+            await self.voice_client_manager.play_file_for(
+                user=self.original_interaction.user,
+                file_path=self.partial_sfx_data.file_path,
+                start_millis=self.partial_sfx_data.start_millis,
+                end_millis=self.partial_sfx_data.end_millis)
+        else:
+            raise RuntimeError(
+                'Unexpected type received from self.sanatize_input()')
 
-        self.partial_sfx_data = res
-        await self.original_interaction.edit_original_response(
-            embed=self.create_embed(), view=self.create_view(), attachments=[await self.generate_waveform()])
-        await self.voice_client_manager.play_file_for(
-            user=self.original_interaction.user,
-            file_path=self.partial_sfx_data.file_path,
-            start_millis=self.partial_sfx_data.start_millis,
-            end_millis=self.partial_sfx_data.end_millis)
