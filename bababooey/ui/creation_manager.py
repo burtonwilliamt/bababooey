@@ -128,7 +128,7 @@ class SoundEffectCreationManager:
                 errors += f'The start time "{start_str}" doesn\'t parse. Try seconds (6.2) or minutes (1:20.1) or the full format (00:00.000).\n'
 
         if end_str is None or end_str.lower() in ('', 'none'):
-            new_sfx_data.end_millis = None
+            new_sfx_data.end_millis = self.duration
         else:
             try:
                 new_sfx_data.end_millis = str_to_millis(end_str)

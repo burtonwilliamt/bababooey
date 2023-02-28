@@ -6,7 +6,6 @@ Discord Sound Effect Bot
 
 - [ ] add new sound effects
   - [ ] Save button
-  - [ ] Waveform image (https://stackoverflow.com/questions/32254818/generating-a-waveform-using-ffmpeg)
   - [ ] Cancel button (with file cleanup and message deletion)
   - [ ] Check the length before doing download.
 
@@ -26,3 +25,6 @@ Discord Sound Effect Bot
 - [ ] sound effect combos chain multiple sound effects together 
 - [ ] command to generate sound effect usage graphs
 - [ ] History refreshes (maybe at the bottom of the soundboar channel)
+  
+## Resources
+- [ ] Waveform image (https://stackoverflow.com/questions/32254818/generating-a-waveform-using-ffmpeg)
