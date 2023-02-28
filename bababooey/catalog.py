@@ -9,7 +9,7 @@ import shelve
 
 import discord
 
-from bababooey import UserSoundEffectHistory, SoundEffect
+from bababooey import UserSoundEffectHistory, SoundEffect, VoiceClientManager
 
 
 def _score_sound_effect_name_matches(partial: str, sfx_name: str) -> int:
@@ -33,7 +33,8 @@ def _strip_leading_emoji(sound_effect_name: str) -> str:
 class Catalog:
     """Storage and lookup container for SoundEffect objects."""
 
-    def __init__(self):
+    def __init__(self, voice_client_manager: VoiceClientManager):
+        self._voice_client_manager = voice_client_manager
         self._history = UserSoundEffectHistory()
         self._all = self._read_sfx_data()
         self._by_name = {sfx.name: sfx for sfx in self._all}
@@ -44,7 +45,7 @@ class Catalog:
 
     def _read_sfx_data(self) -> list[SoundEffect]:
         s = shelve.open('data/sfx_data')
-        effects = [SoundEffect(raw, self._history) for raw in s['data']]
+        effects = [SoundEffect(raw, self._history, self._voice_client_manager) for raw in s['data']]
         s.close()
         return effects
 

@@ -1,5 +1,4 @@
 import asyncio
-import copy
 import datetime
 import logging
 import os
@@ -10,7 +9,7 @@ from discord import app_commands
 import discord.ext.commands
 import yt_dlp as youtube_dl
 
-from bababooey import BababooeyBot, Catalog, SoundEffectData
+from bababooey import BababooeyBot, Catalog, SoundEffectData, VoiceClientManager
 from bababooey.ui import make_soundboard_views, SoundEffectButton, SoundEffectCreationManager
 from settings import SOUNDBOARD_CHANNELS
 
@@ -86,7 +85,8 @@ class BababooeyCog(discord.ext.commands.Cog):
 
     def __init__(self, bot: BababooeyBot):
         self.bot = bot
-        self.catalog = Catalog()
+        self.voice_client_manager = VoiceClientManager()
+        self.catalog = Catalog(self.voice_client_manager)
         # user.id -> discord.Message
         self._previous_x_messages: dict[int, discord.Message] = {}
 
@@ -119,7 +119,7 @@ class BababooeyCog(discord.ext.commands.Cog):
 
         # Collect the recent sounds to display.
         recent_sfx = self.catalog.users_most_recent(interaction.user, 5)
-        view = discord.ui.View()
+        view = discord.ui.View(timeout=X_MESSAGE_TTL_SECONDS)
         for i, sfx in enumerate(reversed(recent_sfx)):
             view.add_item(SoundEffectButton(sfx, row=i))
         # Create the /x interface.
@@ -236,15 +236,23 @@ class BababooeyCog(discord.ext.commands.Cog):
     @app_commands.command()
     async def add_sound(self, interaction: discord.Interaction,
                         youtube_url: str, name: str, emoji: str):
-        """Create a new sound effect."""
+        """Create a new sound effect.
+        
+        Args:
+            youtube_url: The youtube video you want to make into a sound effect.
+            name: Must be unique and under 12 char.
+            emoji: Must be unique. Select using the emoji picker on the right.
+        """
         for sfx in self.catalog.all():
             if sfx.name == name:
                 await interaction.response.send_message(
-                    f'Cannot re-use name. `{name}` is already a sound effect.')
+                    f'Sound effect name must be unique. `{name}` is already a sound effect.'
+                )
                 return
             if sfx.emoji == emoji:
                 await interaction.response.send_message(
-                    f'Cannot re-use emoji. {emoji} is already a sound effect.')
+                    f'Sound effect emoji must be unique. {emoji} is already a sound effect.'
+                )
                 return
 
         await interaction.response.defer()
@@ -267,5 +275,7 @@ class BababooeyCog(discord.ext.commands.Cog):
             tags=f'{name},')
 
         creation_manager = SoundEffectCreationManager(
-            partial_sfx_data=partial_sfx_data, original_interaction=interaction)
+            partial_sfx_data=partial_sfx_data,
+            original_interaction=interaction,
+            voice_client_manager=self.voice_client_manager)
         await creation_manager.send_initial_message()

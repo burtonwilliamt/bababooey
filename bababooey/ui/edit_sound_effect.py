@@ -7,7 +7,8 @@ from bababooey import SoundEffectData, millis_to_str
 class EditSoundEffectModal(discord.ui.Modal):
 
     def __init__(self, sfx: SoundEffectData, original_view: discord.ui.View,
-                 edit_callback: Callable[[str, str, str, str], Awaitable[None]]):
+                 edit_callback: Callable[[str, str, str, str],
+                                         Awaitable[None]]):
         super().__init__(title=f'Editing {sfx.name}.')
         self.sfx = sfx
         self.original_view = original_view

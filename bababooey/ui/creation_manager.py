@@ -3,23 +3,26 @@ from typing import Callable, Awaitable
 
 import discord
 
-from bababooey import millis_to_str, str_to_millis, SoundEffectData, play_file_for
+from bababooey import millis_to_str, str_to_millis, SoundEffectData, VoiceClientManager
 from bababooey.ui import EditSoundEffectModal
 
 
 class _PlaySoundEffectButton(discord.ui.Button):
 
-    def __init__(self, sfx_data: SoundEffectData):
+    def __init__(self, sfx_data: SoundEffectData,
+                 voice_client_manager: VoiceClientManager):
         super().__init__(style=discord.ButtonStyle.green,
                          label='Play',
                          emoji=chr(0x25b6) + chr(0xfe0f))
         self.sfx_data = sfx_data
+        self.voice_client_manager = voice_client_manager
 
     async def callback(self, interaction: discord.Interaction):
-        await play_file_for(user=interaction.user,
-                            file_path=self.sfx_data.file_path,
-                            start_millis=self.sfx_data.start_millis,
-                            end_millis=self.sfx_data.end_millis)
+        await self.voice_client_manager.play_file_for(
+            user=interaction.user,
+            file_path=self.sfx_data.file_path,
+            start_millis=self.sfx_data.start_millis,
+            end_millis=self.sfx_data.end_millis)
         await interaction.response.edit_message(view=self.view)
 
 
@@ -53,10 +56,12 @@ class _EditSoundEffectButton(discord.ui.Button):
 
 class SoundEffectCreationManager:
 
-    def __init__(self, partial_sfx_data: SoundEffectData,
-                 original_interaction: discord.Interaction):
+    def __init__(self, *, partial_sfx_data: SoundEffectData,
+                 original_interaction: discord.Interaction,
+                 voice_client_manager: VoiceClientManager):
         self.partial_sfx_data = partial_sfx_data
         self.original_interaction = original_interaction
+        self.voice_client_manager = voice_client_manager
 
     def create_embed(self, error: str | None = None) -> discord.Embed:
         e = discord.Embed(
@@ -75,8 +80,8 @@ class SoundEffectCreationManager:
         return e
 
     def create_view(self) -> discord.ui.View:
-        view = discord.ui.View()
-        view.add_item(_PlaySoundEffectButton(self.partial_sfx_data))
+        view = discord.ui.View(timeout=None)
+        view.add_item(_PlaySoundEffectButton(self.partial_sfx_data, self.voice_client_manager))
         view.add_item(_SoundEffectSauceButton(self.partial_sfx_data))
         view.add_item(
             _EditSoundEffectButton(self.partial_sfx_data, self.edit_callback))
@@ -109,7 +114,8 @@ class SoundEffectCreationManager:
 
         await self.original_interaction.edit_original_response(
             embed=self.create_embed(), view=self.create_view())
-        await play_file_for(user=self.original_interaction.user,
-                            file_path=self.partial_sfx_data.file_path,
-                            start_millis=self.partial_sfx_data.start_millis,
-                            end_millis=self.partial_sfx_data.end_millis)
+        await self.voice_client_manager.play_file_for(
+            user=self.original_interaction.user,
+            file_path=self.partial_sfx_data.file_path,
+            start_millis=self.partial_sfx_data.start_millis,
+            end_millis=self.partial_sfx_data.end_millis)

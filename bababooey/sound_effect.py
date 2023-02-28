@@ -1,13 +1,13 @@
-import datetime
-
 import discord
 
-from bababooey import SoundEffectData, UserSoundEffectHistory, play_file_for, millis_to_str
+from bababooey import SoundEffectData, UserSoundEffectHistory, millis_to_str, VoiceClientManager
 
 
 class SoundEffect:
 
-    def __init__(self, raw: SoundEffectData, history: UserSoundEffectHistory):
+    def __init__(self, raw: SoundEffectData, history: UserSoundEffectHistory,
+                 voice_client_manager: VoiceClientManager):
+        self._voice_client_manager = voice_client_manager
         self._raw = raw
         self._history = history
 
@@ -34,13 +34,16 @@ class SoundEffect:
     @property
     def num(self) -> int:
         return self._raw.num
-    
+
     @property
     def tags(self) -> str:
         return self._raw.tags
 
     async def play_for(self, user: discord.Member):
-        await play_file_for(user, self._raw.file_path, self._raw.start_millis, self._raw.end_millis)
+        await self._voice_client_manager.play_file_for(user,
+                                                       self._raw.file_path,
+                                                       self._raw.start_millis,
+                                                       self._raw.end_millis)
         self._history.record_usage(user, self.num)
 
     def details_embed(self) -> discord.Embed:
