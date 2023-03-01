@@ -4,7 +4,6 @@ Discord Sound Effect Bot
 
 ## TODO
 - [ ] add new sound effects
-  - [ ] Save button
   - [ ] Cancel button (with file cleanup and message deletion)
 - [ ] History includes the date, formats to ET
 
@@ -13,13 +12,16 @@ Discord Sound Effect Bot
 - [ ] Waveform is mono
 - [ ] Waveform has time lines
 - [ ] Waveform has overview and zoomed-in
-- [ ] Auto re-draw the soundboard on launch (or check contents)
+- [ ] Auto re-draw the soundboard once a new sound is added
 - [ ] import the sound effect history from old logs
 - [ ] logging for commands
 
 
 ## Bugs
 - [ ] When you request while not in a voice channel, it should join whatever has people.
+- [ ] We need a lock when redrawing the sound board.
+- [ ] Sometimes the tags/times are empty in the modal even though you just edited it.
+- [ ] Downloading https://www.youtube.com/watch?v=Sk8QzckJvUI cuts it off at the end (youtubedl returns whole integer seconds, we need millis)
 
 ## Distant features
 - [ ] Monkeytime

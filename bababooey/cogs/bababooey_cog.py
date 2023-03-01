@@ -89,6 +89,7 @@ class BababooeyCog(discord.ext.commands.Cog):
         self.catalog = Catalog(self.voice_client_manager)
         # user.id -> discord.Message
         self._previous_x_messages: dict[int, discord.Message] = {}
+        self._soundboard_drawing_lock = asyncio.Lock()
 
     @discord.ext.commands.Cog.listener()
     async def on_ready(self):
@@ -179,47 +180,54 @@ class BababooeyCog(discord.ext.commands.Cog):
     @app_commands.command()
     async def sync_soundboard(self, interaction: discord.Interaction):
         """Redraw the soundboard channel."""
-        if interaction.guild.id not in SOUNDBOARD_CHANNELS:
+        if self._soundboard_drawing_lock.locked():
             await interaction.response.send_message(
-                'This server does not have a soundboard channel configured.')
-        soundboard_channel = await self.bot.fetch_channel(
-            SOUNDBOARD_CHANNELS[interaction.guild.id])
-        await interaction.response.defer()
-        views = make_soundboard_views(self.catalog.all(), interaction.guild_id)
+                'The soundboard is currently being updated, please try again later.'
+            )
+        async with self._soundboard_drawing_lock:
+            if interaction.guild.id not in SOUNDBOARD_CHANNELS:
+                await interaction.response.send_message(
+                    'This server does not have a soundboard channel configured.'
+                )
+            soundboard_channel = await self.bot.fetch_channel(
+                SOUNDBOARD_CHANNELS[interaction.guild.id])
+            await interaction.response.defer()
+            views = make_soundboard_views(self.catalog.all(),
+                                          interaction.guild_id)
 
-        # Check the history in that channel.
-        expected_number_of_messages = len(views)
-        messages = [
-            msg async for msg in soundboard_channel.history(
-                limit=expected_number_of_messages + 1)
-        ]
-        # If there is a lot of messages (more than a soundboard), then maybe the
-        # channel was used by something else first. Avoid deleting all the
-        # messages to preserve people's history.
-        if len(messages) > expected_number_of_messages:
-            await interaction.followup.send(
-                'There are more than the expected number of messages '
-                f'({expected_number_of_messages}) in {soundboard_channel}, '
-                'just to be safe I don\'t want to delete the history.')
-            return
-
-        # Similarly, if there are some messages sent by someone other than the
-        # bot, we know it's something we didn't create so preserve it.
-        for msg in messages:
-            if msg.author.id != self.bot.user.id:
+            # Check the history in that channel.
+            expected_number_of_messages = len(views)
+            messages = [
+                msg async for msg in soundboard_channel.history(
+                    limit=expected_number_of_messages + 1)
+            ]
+            # If there is a lot of messages (more than a soundboard), then maybe the
+            # channel was used by something else first. Avoid deleting all the
+            # messages to preserve people's history.
+            if len(messages) > expected_number_of_messages:
                 await interaction.followup.send(
-                    f'Someone else sent messages in {soundboard_channel}, '
+                    'There are more than the expected number of messages '
+                    f'({expected_number_of_messages}) in {soundboard_channel}, '
                     'just to be safe I don\'t want to delete the history.')
                 return
 
-        for msg in messages:
-            await msg.delete()
+            # Similarly, if there are some messages sent by someone other than the
+            # bot, we know it's something we didn't create so preserve it.
+            for msg in messages:
+                if msg.author.id != self.bot.user.id:
+                    await interaction.followup.send(
+                        f'Someone else sent messages in {soundboard_channel}, '
+                        'just to be safe I don\'t want to delete the history.')
+                    return
 
-        for view in views:
-            await soundboard_channel.send(view=view)
+            for msg in messages:
+                await msg.delete()
 
-        await interaction.followup.send(
-            f'Sent a fresh soundboard in {soundboard_channel}')
+            for view in views:
+                await soundboard_channel.send(view=view)
+
+            await interaction.followup.send(
+                f'Sent a fresh soundboard in {soundboard_channel}')
 
     @app_commands.command()
     async def history(self, interaction: discord.Interaction):
@@ -241,7 +249,8 @@ class BababooeyCog(discord.ext.commands.Cog):
 
     @app_commands.command()
     async def add_sound(self, interaction: discord.Interaction,
-                        youtube_url: str, name: app_commands.Range[str, 1, 12], emoji: str):
+                        youtube_url: str, name: app_commands.Range[str, 1, 12],
+                        emoji: str):
         """Create a new sound effect.
         
         Args:
@@ -255,6 +264,7 @@ class BababooeyCog(discord.ext.commands.Cog):
                     f'Sound effect name must be unique. `{name}` is already a sound effect.'
                 )
                 return
+            #TODO: this failed when using :shield:
             if sfx.emoji == emoji:
                 await interaction.response.send_message(
                     f'Sound effect emoji must be unique. {emoji} is already a sound effect.'
