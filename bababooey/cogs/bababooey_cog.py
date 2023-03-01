@@ -3,6 +3,7 @@ import datetime
 import logging
 import os
 import re
+import subprocess
 
 import discord
 from discord import app_commands
@@ -62,7 +63,7 @@ async def do_youtube_dl(url: str,
         res = ytdl.extract_info(url, download=True)
         return res
 
-    data = await loop.run_in_executor(None, do_download)
+    data = ytdl.sanitize_info(await loop.run_in_executor(None, do_download))
     if 'entries' in data:
         # take first item from a playlist
         data = data['entries'][0]
@@ -72,6 +73,24 @@ async def do_youtube_dl(url: str,
     #if labeled_format not in ('mp3', 'webm', 'm4a'):
 
     return (os.path.abspath(filename), data['duration'] * 1000)
+
+
+async def read_audio_length(file_path: str) -> int | None:
+    """Returns the length of the audio in millis."""
+    proc = await asyncio.create_subprocess_shell(
+        f'ffprobe -show_entries format=duration {file_path} | grep "duration="',
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE)
+    stdout, stderr = await proc.communicate()
+    if proc.returncode != 0:
+        _log.error('ffprobe failed. Here is the stderr: %s', stderr.decode())
+        return None
+    output = stdout.decode().strip()
+    try:
+        return int(float(output.removeprefix('duration=')) * 1000)
+    except ValueError:
+        _log.error('Failed to parse ffprobe output "%s"', output)
+        return None
 
 
 def _unicode_safe_emoji(discord_emoji: str) -> str:
@@ -277,6 +296,11 @@ class BababooeyCog(discord.ext.commands.Cog):
         # TODO: prevent downloading if it's larger than a limit.
         file_path, duration_millis = await do_youtube_dl(
             youtube_url, self.bot.loop)
+
+        # ffprobe gives a higher resolution of the duration.
+        ffprobe_duration_millis = await read_audio_length(file_path)
+        if ffprobe_duration_millis is not None:
+            duration_millis = ffprobe_duration_millis
 
         partial_sfx_data = SoundEffectData(
             num=-1,
