@@ -150,11 +150,10 @@ class SoundEffectCreationManager:
             return
         await interaction.response.edit_message(embed=discord.Embed(
             title='Success!',
-            description=
-            f'Successfully created {sfx.emoji} {sfx.name}. '
+            description=f'Successfully created {sfx.emoji} {sfx.name}. '
             'Go checkout the soundboard channel (or redraw it using /sync_soundboard)',
         ),
-            attachments=[],
+                                                attachments=[],
                                                 view=None)
 
     async def generate_waveform(self) -> discord.File | None:
