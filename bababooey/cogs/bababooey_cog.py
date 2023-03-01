@@ -184,6 +184,7 @@ class BababooeyCog(discord.ext.commands.Cog):
             await interaction.response.send_message(
                 'The soundboard is currently being updated, please try again later.'
             )
+            return
         async with self._soundboard_drawing_lock:
             if interaction.guild.id not in SOUNDBOARD_CHANNELS:
                 await interaction.response.send_message(
@@ -227,7 +228,7 @@ class BababooeyCog(discord.ext.commands.Cog):
                 await soundboard_channel.send(view=view)
 
             await interaction.followup.send(
-                f'Sent a fresh soundboard in {soundboard_channel}')
+                f'Sent a fresh soundboard in #{soundboard_channel}')
 
     @app_commands.command()
     async def history(self, interaction: discord.Interaction):
