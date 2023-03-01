@@ -53,6 +53,41 @@ class _EditSoundEffectButton(discord.ui.Button):
                                  edit_callback=self.edit_callback))
 
 
+class _SaveConfirmationModal(discord.ui.Modal):
+
+    def __init__(self, confirm_callback: Callable[[discord.Interaction],
+                                                  Awaitable[None]]):
+        super().__init__(title='Save the sound effect?')
+        self.confirm_callback = confirm_callback
+        message = (
+            'Make sure you\'re happy with the sound effect before you save it. '
+            'It\'s a lot of work to edit it.'
+        )
+        # TODO: this should allow the user to add some last minute tags.
+        self.add_item(
+            discord.ui.TextInput(label='Warning',
+                                 style=discord.TextStyle.paragraph,
+                                 placeholder=message,
+                                 default=message,))
+
+    async def on_submit(self, interaction: discord.Interaction) -> None:
+        await self.confirm_callback(interaction)
+
+
+class _SaveSoundEffectButton(discord.ui.Button):
+
+    def __init__(self, save_callback: Callable[[discord.Interaction],
+                                               Awaitable[None]]):
+        super().__init__(style=discord.ButtonStyle.grey,
+                         label='Save',
+                         emoji=chr(0x1f4be))
+        self.save_callback = save_callback
+
+    async def callback(self, interaction: discord.Interaction) -> None:
+        await interaction.response.send_modal(
+            _SaveConfirmationModal(confirm_callback=self.save_callback))
+
+
 class SoundEffectCreationManager:
 
     def __init__(self, *, partial_sfx_data: SoundEffectData,
@@ -85,7 +120,7 @@ class SoundEffectCreationManager:
         if use_attached_image:
             e.set_image(url='attachment://image.png')
         if error is not None:
-            e.description = (f'```diff\n-ERROR\n-' +
+            e.description = ('```diff\n-ERROR\n-' +
                              '\n-'.join(error.splitlines()) + '\n```' +
                              e.description)
         return e
@@ -97,7 +132,11 @@ class SoundEffectCreationManager:
                                    self.voice_client_manager))
         view.add_item(
             _EditSoundEffectButton(self.partial_sfx_data, self.edit_callback))
+        view.add_item(_SaveSoundEffectButton(self.save_sound_effect))
         return view
+
+    async def save_sound_effect(self, interaction: discord.Interaction) -> None:
+        await interaction.response.edit_message(view=self.create_view())
 
     async def generate_waveform(self) -> discord.File | None:
         os.makedirs('data/tmp/', exist_ok=True)
@@ -170,7 +209,8 @@ class SoundEffectCreationManager:
         else:
             attachments = [waveform]
 
-        embed = self.create_embed(use_attached_image=waveform is not None, error=error)
+        embed = self.create_embed(use_attached_image=waveform is not None,
+                                  error=error)
         await self.original_interaction.edit_original_response(
             embed=embed, view=self.create_view(), attachments=attachments)
 
@@ -194,4 +234,3 @@ class SoundEffectCreationManager:
         else:
             raise RuntimeError(
                 'Unexpected type received from self.sanatize_input()')
-

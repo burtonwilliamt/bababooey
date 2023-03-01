@@ -46,6 +46,8 @@ class EditSoundEffectModal(discord.ui.Modal):
     async def on_submit(self, interaction: discord.Interaction):
         # First response to the interaction so we don't need to worry about it.
         await interaction.response.edit_message(view=self.original_view)
+        # TODO: I think the edit_callback should probably handle the interaction
+        # response. Should we just forward it?
         await self.edit_callback(name=self.name.value,
                                  start_str=self.start.value,
                                  end_str=self.end.value,
