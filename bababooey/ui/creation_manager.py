@@ -61,14 +61,15 @@ class _SaveConfirmationModal(discord.ui.Modal):
         self.confirm_callback = confirm_callback
         message = (
             'Make sure you\'re happy with the sound effect before you save it. '
-            'It\'s a lot of work to edit it.'
-        )
+            'It\'s a lot of work to edit it.')
         # TODO: this should allow the user to add some last minute tags.
         self.add_item(
-            discord.ui.TextInput(label='Warning',
-                                 style=discord.TextStyle.paragraph,
-                                 placeholder=message,
-                                 default=message,))
+            discord.ui.TextInput(
+                label='Warning',
+                style=discord.TextStyle.paragraph,
+                placeholder=message,
+                default=message,
+            ))
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
         await self.confirm_callback(interaction)
@@ -136,7 +137,25 @@ class SoundEffectCreationManager:
         return view
 
     async def save_sound_effect(self, interaction: discord.Interaction) -> None:
-        await interaction.response.edit_message(view=self.create_view())
+        try:
+            sfx = self.catalog.create_new_sfx(self.partial_sfx_data)
+        except ValueError as e:
+            context = ''
+            if e.args:
+                context = e.args[0]
+            # TODO: be smarter and don't double edit on errors.
+            await interaction.response.edit_message(view=self.create_view())
+            await self.edit_original_response(
+                error=f'Failed to create sound effect!\n{context}')
+            return
+        await interaction.response.edit_message(embed=discord.Embed(
+            title='Success!',
+            description=
+            f'Successfully created {sfx.emoji} {sfx.name}. '
+            'Go checkout the soundboard channel (or redraw it using /sync_soundboard)',
+        ),
+            attachments=[],
+                                                view=None)
 
     async def generate_waveform(self) -> discord.File | None:
         os.makedirs('data/tmp/', exist_ok=True)

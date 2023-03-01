@@ -9,7 +9,7 @@ import shelve
 
 import discord
 
-from bababooey import UserSoundEffectHistory, SoundEffect, VoiceClientManager
+from bababooey import UserSoundEffectHistory, SoundEffect, SoundEffectData, VoiceClientManager
 
 
 def _score_sound_effect_name_matches(partial: str, sfx_name: str) -> int:
@@ -45,9 +45,36 @@ class Catalog:
 
     def _read_sfx_data(self) -> list[SoundEffect]:
         s = shelve.open('data/sfx_data')
-        effects = [SoundEffect(raw, self._history, self._voice_client_manager) for raw in s['data']]
+        effects = [
+            SoundEffect(raw, self._history, self._voice_client_manager)
+            for raw in s['data']
+        ]
         s.close()
         return effects
+
+    def create_new_sfx(self, sfx_data: SoundEffectData) -> SoundEffect:
+        next_num = self._all[-1].num + 1
+        sfx_data.num = next_num
+        if sfx_data.name in self._by_name:
+            raise ValueError(
+                f'Cannot create a sound effect with duplicate name "{sfx_data.name}"'
+            )
+        if any([sfx.emoji == sfx_data.emoji for sfx in self._all]):
+            raise ValueError(
+                f'Cannot create a sound effect with duplicate emoji "{sfx_data.emoji}"'
+            )
+        s = shelve.open('data/sfx_data')
+        all_raw = s['data']
+        all_raw.append(sfx_data)
+        s['data'] = all_raw
+        s.close()
+        sfx = SoundEffect(sfx_data,
+                          history=self._history,
+                          voice_client_manager=self._voice_client_manager)
+        self._all.append(sfx)
+        self._by_name[sfx.name] = sfx
+        self._by_num[sfx.num] = sfx
+        return sfx
 
     def find_partial_matches(self,
                              partial_sound_name: str) -> Sequence[SoundEffect]:
