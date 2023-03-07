@@ -8,7 +8,7 @@ from typing import Callable, Awaitable
 
 import discord
 
-from bababooey import millis_to_str, str_to_millis, SoundEffectData, VoiceClientManager, Catalog
+from bababooey import millis_to_str, str_to_millis, SoundEffectData, SoundEffect, VoiceClientManager, Catalog
 from bababooey.ui import EditSoundEffectModal
 
 MAX_SOUND_EFFECT_NAME_LENGTH = 12
@@ -89,6 +89,25 @@ class _SaveSoundEffectButton(discord.ui.Button):
             _SaveConfirmationModal(confirm_callback=self.save_callback))
 
 
+class _CancelButton(discord.ui.Button):
+
+    def __init__(self, complete_event: asyncio.Event):
+        super().__init__(style=discord.ButtonStyle.red,
+                         label='Cancel',
+                         emoji=chr(0x2716) + chr(0xfe0f))
+        self.complete_event = complete_event
+
+    async def callback(self, interaction: discord.Interaction) -> None:
+        await interaction.response.edit_message(embed=discord.Embed(
+            title='Cancelled',
+            description=
+            'You have cancelled this sound effect creation. Come back another time!'
+        ),
+                                                 view=None, attachments=[])
+        # Tell listeners that we've finished (no sfx set means we failed).
+        self.complete_event.set()
+
+
 class SoundEffectCreationManager:
 
     def __init__(self, *, partial_sfx_data: SoundEffectData,
@@ -99,6 +118,8 @@ class SoundEffectCreationManager:
         self.original_interaction = original_interaction
         self.voice_client_manager = voice_client_manager
         self.catalog = catalog
+        self.complete = asyncio.Event()
+        self.complete_sfx: SoundEffect | None = None
 
     def create_embed(self,
                      use_attached_image: bool,
@@ -134,27 +155,8 @@ class SoundEffectCreationManager:
         view.add_item(
             _EditSoundEffectButton(self.partial_sfx_data, self.edit_callback))
         view.add_item(_SaveSoundEffectButton(self.save_sound_effect))
+        view.add_item(_CancelButton(self.complete))
         return view
-
-    async def save_sound_effect(self, interaction: discord.Interaction) -> None:
-        try:
-            sfx = self.catalog.create_new_sfx(self.partial_sfx_data)
-        except ValueError as e:
-            context = ''
-            if e.args:
-                context = e.args[0]
-            # TODO: be smarter and don't double edit on errors.
-            await interaction.response.edit_message(view=self.create_view())
-            await self.edit_original_response(
-                error=f'Failed to create sound effect!\n{context}')
-            return
-        await interaction.response.edit_message(embed=discord.Embed(
-            title='Success!',
-            description=f'Successfully created {sfx.emoji} {sfx.name}. '
-            'Go checkout the soundboard channel (or redraw it using /sync_soundboard)',
-        ),
-                                                attachments=[],
-                                                view=None)
 
     async def generate_waveform(self) -> discord.File | None:
         os.makedirs('data/tmp/', exist_ok=True)
@@ -170,18 +172,6 @@ class SoundEffectCreationManager:
             _log.error('FFMPEG failed. Here is the stderr: %s', stderr.decode())
             return None
         return discord.File(image_path, filename='image.png')
-
-    async def send_initial_message(self) -> None:
-        waveform = await self.generate_waveform()
-        if waveform is None:
-            await self.original_interaction.followup.send(
-                embed=self.create_embed(use_attached_image=False),
-                view=self.create_view())
-        else:
-            await self.original_interaction.followup.send(
-                embed=self.create_embed(use_attached_image=True),
-                view=self.create_view(),
-                file=waveform)
 
     def sanitize_input(self, name: str, start_str: str, end_str: str | None,
                        tags: str | None) -> SoundEffectData | str:
@@ -252,3 +242,43 @@ class SoundEffectCreationManager:
         else:
             raise RuntimeError(
                 'Unexpected type received from self.sanatize_input()')
+
+    async def save_sound_effect(self, interaction: discord.Interaction) -> None:
+        try:
+            sfx = self.catalog.create_new_sfx(self.partial_sfx_data)
+        except ValueError as e:
+            context = ''
+            if e.args:
+                context = e.args[0]
+            # TODO: be smarter and don't double edit on errors.
+            await interaction.response.edit_message(view=self.create_view())
+            await self.edit_original_response(
+                error=f'Failed to create sound effect!\n{context}')
+            return
+        await interaction.response.edit_message(embed=discord.Embed(
+            title=f'{sfx.emoji} {sfx.name}',
+            description=f'Successfully created {sfx.emoji} {sfx.name}. '
+            'Go checkout the soundboard channel (or redraw it using /sync_soundboard)',
+        ),
+                                                attachments=[],
+                                                view=None)
+        self.complete_sfx = sfx
+        # Tell listeners that they can get the sound effect.
+        self.complete.set()
+
+    async def send_initial_message(self) -> None:
+        waveform = await self.generate_waveform()
+        if waveform is None:
+            await self.original_interaction.followup.send(
+                embed=self.create_embed(use_attached_image=False),
+                view=self.create_view())
+        else:
+            await self.original_interaction.followup.send(
+                embed=self.create_embed(use_attached_image=True),
+                view=self.create_view(),
+                file=waveform)
+
+    async def manage(self) -> SoundEffect | None:
+        await self.send_initial_message()
+        await self.complete.wait()
+        return self.complete_sfx

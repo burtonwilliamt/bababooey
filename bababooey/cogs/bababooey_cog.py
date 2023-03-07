@@ -196,24 +196,17 @@ class BababooeyCog(discord.ext.commands.Cog):
             return
         await interaction.response.send_message(embed=sfx.details_embed())
 
-    @app_commands.command()
-    async def sync_soundboard(self, interaction: discord.Interaction):
-        """Redraw the soundboard channel."""
-        if self._soundboard_drawing_lock.locked():
-            await interaction.response.send_message(
-                'The soundboard is currently being updated, please try again later.'
-            )
-            return
+    async def _do_soundboard_redraw(self, guild: discord.Guild) -> str:
+        """Redraw the soundboard.
+        
+        Returns the success or failure status.
+        """
         async with self._soundboard_drawing_lock:
-            if interaction.guild.id not in SOUNDBOARD_CHANNELS:
-                await interaction.response.send_message(
-                    'This server does not have a soundboard channel configured.'
-                )
+            if guild.id not in SOUNDBOARD_CHANNELS:
+                return 'This server does not have a soundboard channel configured.'
             soundboard_channel = await self.bot.fetch_channel(
-                SOUNDBOARD_CHANNELS[interaction.guild.id])
-            await interaction.response.defer()
-            views = make_soundboard_views(self.catalog.all(),
-                                          interaction.guild_id)
+                SOUNDBOARD_CHANNELS[guild.id])
+            views = make_soundboard_views(self.catalog.all(), guild.id)
 
             # Check the history in that channel.
             expected_number_of_messages = len(views)
@@ -225,29 +218,44 @@ class BababooeyCog(discord.ext.commands.Cog):
             # channel was used by something else first. Avoid deleting all the
             # messages to preserve people's history.
             if len(messages) > expected_number_of_messages:
-                await interaction.followup.send(
+                return (
                     'There are more than the expected number of messages '
                     f'({expected_number_of_messages}) in {soundboard_channel}, '
                     'just to be safe I don\'t want to delete the history.')
-                return
 
             # Similarly, if there are some messages sent by someone other than the
             # bot, we know it's something we didn't create so preserve it.
             for msg in messages:
                 if msg.author.id != self.bot.user.id:
-                    await interaction.followup.send(
+                    return (
                         f'Someone else sent messages in {soundboard_channel}, '
                         'just to be safe I don\'t want to delete the history.')
-                    return
 
-            for msg in messages:
-                await msg.delete()
+            try:
+                await soundboard_channel.delete_messages(messages)
+            except discord.HTTPException:
+                # I think this happens when delete_messages hits messages that
+                # are more than 14 days old.
+                for msg in messages:
+                    await msg.delete()
 
             for view in views:
                 await soundboard_channel.send(view=view)
 
-            await interaction.followup.send(
-                f'Sent a fresh soundboard in #{soundboard_channel}')
+            return (f'Sent a fresh soundboard in #{soundboard_channel}')
+
+    @app_commands.command()
+    async def sync_soundboard(self, interaction: discord.Interaction):
+        """Redraw the soundboard channel."""
+        if self._soundboard_drawing_lock.locked():
+            await interaction.response.send_message(
+                'The soundboard is currently being updated, please try again later.'
+            )
+            return
+        await interaction.response.defer()
+        status = await self._do_soundboard_redraw(interaction.guild)
+        await interaction.followup.send(
+            embed=discord.Embed(title='Manual Redraw', description=status))
 
     @app_commands.command()
     async def history(self, interaction: discord.Interaction):
@@ -320,4 +328,15 @@ class BababooeyCog(discord.ext.commands.Cog):
             original_interaction=interaction,
             voice_client_manager=self.voice_client_manager,
             catalog=self.catalog)
-        await creation_manager.send_initial_message()
+
+        new_sfx = await creation_manager.manage()
+        if new_sfx is None:
+            # Creation failed or was cancelled. It should have done its own
+            # message.
+            return
+        await interaction.edit_original_response(embed=discord.Embed(
+            title=f'{new_sfx.emoji} {new_sfx.name}',
+            description='Updating the soundboard, please wait...'))
+        status = await self._do_soundboard_redraw(interaction.guild)
+        await interaction.edit_original_response(embed=discord.Embed(
+            title=f'{new_sfx.emoji} {new_sfx.name}', description=status))

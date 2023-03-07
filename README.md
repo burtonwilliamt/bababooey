@@ -3,8 +3,9 @@ Discord Sound Effect Bot
 
 
 ## TODO
+- [ ] auto disconnect doesn't seem to be working
 - [ ] add new sound effects
-  - [ ] Cancel button (with file cleanup and message deletion)
+  - [ ] Timeout (with file cleanup)
 - [ ] History includes the date, formats to ET
 - [ ] Monkeytime
 
@@ -13,7 +14,6 @@ Discord Sound Effect Bot
 - [ ] Waveform is mono
 - [ ] Waveform has time lines
 - [ ] Waveform has overview and zoomed-in
-- [ ] Auto re-draw the soundboard once a new sound is added
 - [ ] import the sound effect history from old logs
 - [ ] logging for commands
 - [ ] Progress when downloading large audio file
@@ -24,7 +24,6 @@ Discord Sound Effect Bot
 - [ ] Sometimes the tags/times are empty in the modal even though you just edited it.
 
 ## Distant features
-- [ ] Monkeytime
 - [ ] Check the length before doing download.
 - [ ] sound effect pallets
 - [ ] sound effect combos chain multiple sound effects together 
