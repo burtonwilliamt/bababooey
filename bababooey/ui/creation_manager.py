@@ -103,7 +103,8 @@ class _CancelButton(discord.ui.Button):
             description=
             'You have cancelled this sound effect creation. Come back another time!'
         ),
-                                                 view=None, attachments=[])
+                                                view=None,
+                                                attachments=[])
         # Tell listeners that we've finished (no sfx set means we failed).
         self.complete_event.set()
 

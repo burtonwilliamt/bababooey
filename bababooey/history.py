@@ -10,14 +10,12 @@ class UserSoundEffectHistory:
     """Stores a mapping from users to sound effect usage history."""
 
     def __init__(self):
+        if not os.path.exists('data/'):
+            os.makedirs('data/')
         self._con = sqlite3.connect('data/user_sound_effect_history.db')
         self._create_table_if_missing()
 
     def _create_table_if_missing(self):
-        # Make sure the data dir exists.
-        if not os.path.exists('data/'):
-            os.makedirs('data/')
-        # Make sure the table exists.
         cur = self._con.cursor()
         res = cur.execute('SELECT name FROM sqlite_master').fetchone()
         if res is not None and 'user_history' in res:

@@ -2,6 +2,8 @@ import discord
 import discord.ext.commands
 from discord import app_commands
 
+from bababooey import InteractionHistory
+
 class BababooeyBot(discord.Client):
 
     def __init__(self,
@@ -14,6 +16,7 @@ class BababooeyBot(discord.Client):
         self.guild_ids = guild_ids
         self.force_command_sync = force_command_sync
         self.extra_events = {}
+        self.interaction_history = InteractionHistory()
 
     async def setup_hook(self):
         if self.force_command_sync:
@@ -52,3 +55,6 @@ class BababooeyBot(discord.Client):
         ev = 'on_' + event_name
         for event in self.extra_events.get(ev, []):
             self._schedule_event(event, ev, *args, **kwargs)
+
+    async def on_interaction(self, interaction: discord.Interaction):
+        self.interaction_history.record_usage(interaction)
