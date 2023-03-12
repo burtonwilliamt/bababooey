@@ -1,5 +1,4 @@
 # No inter-project dependencies
-from .setup_logging import setup_logging
 from .setup_db import setup_db
 from .sound_effect_data import SoundEffectData
 from .str_time_converters import millis_to_str, str_to_millis

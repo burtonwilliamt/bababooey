@@ -1,9 +1,9 @@
 import logging
 
 import discord
-from racket import RacketBot
+from racket import setup_logging, RacketBot
 
-from bababooey import setup_logging, setup_db
+from bababooey import setup_db
 from bababooey.cogs import BababooeyCog
 from settings import GUILD_IDS, BOT_TOKEN
 
