@@ -8,9 +8,10 @@ import subprocess
 import discord
 from discord import app_commands
 import discord.ext.commands
+from racket import RacketBot
 import yt_dlp as youtube_dl
 
-from bababooey import BababooeyBot, Catalog, SoundEffectData, VoiceClientManager
+from bababooey import Catalog, SoundEffectData, VoiceClientManager
 from bababooey.ui import make_soundboard_views, SoundEffectButton, SoundEffectCreationManager
 from settings import SOUNDBOARD_CHANNELS
 
@@ -102,7 +103,7 @@ def _unicode_safe_emoji(discord_emoji: str) -> str:
 class BababooeyCog(discord.ext.commands.Cog):
     """Collection of sound effects and the commands to use them."""
 
-    def __init__(self, bot: BababooeyBot):
+    def __init__(self, bot: RacketBot):
         self.bot = bot
         self.voice_client_manager = VoiceClientManager()
         self.catalog = Catalog(self.voice_client_manager)

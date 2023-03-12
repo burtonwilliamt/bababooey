@@ -1,9 +1,10 @@
 import logging
 
 import discord
+from racket import RacketBot
 
-from bababooey import setup_logging, setup_db, BababooeyBot
-from bababooey.cogs import AdminCog, BababooeyCog
+from bababooey import setup_logging, setup_db
+from bababooey.cogs import BababooeyCog
 from settings import GUILD_IDS, BOT_TOKEN
 
 _log = logging.getLogger(__name__)
@@ -19,10 +20,7 @@ def main():
     intents.message_content = False  # pylint: disable=assigning-non-slot
 
     _log.info('Creating bot object.')
-    bot = BababooeyBot(intents=intents, guild_ids=GUILD_IDS)
-
-    _log.info('Adding admin commands.')
-    bot.add_cog(AdminCog(bot))
+    bot = RacketBot(intents=intents, guild_ids=GUILD_IDS)
 
     _log.info('Adding sound effect commands.')
     bot.add_cog(BababooeyCog(bot))

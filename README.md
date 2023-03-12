@@ -15,7 +15,6 @@ Discord Sound Effect Bot
 - [ ] Waveform has time lines
 - [ ] Waveform has overview and zoomed-in
 - [ ] import the sound effect history from old logs
-- [ ] logging for commands
 - [ ] Progress when downloading large audio file
 
 
