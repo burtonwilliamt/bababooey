@@ -1,4 +1,4 @@
 discord.py[voice] >= 2.2.0
 yt-dlp
 ipython
-discord-racket >= 0.0.12
+discord-racket >= 0.0.13
