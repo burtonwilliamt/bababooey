@@ -81,7 +81,8 @@ class VoiceClientManager:
         while True:
             await asyncio.sleep(DISCONNECT_POLL_SECONDS)
             async with self._vc_connection_lock:
-                for guild_id in self.clients:
+                # make a copy to avoid "dictionary changed size during iteration"
+                for guild_id in dict(self.clients):
                     await self._maybe_garbage_collect_client(guild_id)
 
     async def _ensure_voice(self,
