@@ -3,7 +3,7 @@ Discord Sound Effect Bot
 
 
 ## TODO
-- [ ] auto disconnect doesn't seem to be working
+- [ ] hook up the money on guess_sound
 - [ ] add new sound effects
   - [ ] Timeout (with file cleanup)
 - [ ] History includes the date, formats to ET

@@ -2,6 +2,7 @@ import asyncio
 import datetime
 import logging
 import os
+import random
 import re
 import subprocess
 
@@ -184,7 +185,7 @@ class BababooeyCog(discord.ext.commands.Cog):
     @app_commands.command()
     @app_commands.describe(search='Look for a sound effect by name or tags.')
     @app_commands.autocomplete(search=_autocomplete_sound_effect_name)
-    async def edit_sound(
+    async def inspect_sound(
         self,
         interaction: discord.Interaction,
         search: str,
@@ -192,8 +193,10 @@ class BababooeyCog(discord.ext.commands.Cog):
         """Edit a sound effect."""
         sfx = self.catalog.by_name(search)
         if sfx is None:
-            await interaction.response.send_message(
-                f'I don\'t know a sound effect by the name of `{search}`.')
+            await interaction.response.send_message(embed=discord.Embed(
+                title='Unknown sound',
+                description=
+                f'I don\'t know a sound effect by the name of `{search}`.'))
             return
         await interaction.response.send_message(embed=sfx.details_embed())
 
@@ -341,3 +344,69 @@ class BababooeyCog(discord.ext.commands.Cog):
         status = await self._do_soundboard_redraw(interaction.guild)
         await interaction.edit_original_response(embed=discord.Embed(
             title=f'{new_sfx.emoji} {new_sfx.name}', description=status))
+
+    @app_commands.command()
+    async def guess_sound(self, interaction: discord.Interaction):
+        """It\'s like Wheel of Fortune, but with sound effects."""
+        sfx = random.choice(self.catalog.all())
+        unrevealed = list(range(len(sfx.name)))
+        revealed = set()
+        # Either a fraction of the SFX, or a 0.25 second, whatever is smaller
+        increment = int(
+            min((sfx.end_millis - sfx.start_millis) / len(sfx.name), 250))
+
+        def make_embed() -> discord.Embed:
+            return discord.Embed(title=''.join([
+                sfx.name[i] if i in revealed else '?'
+                for i in range(len(sfx.name))
+            ]))
+
+        await interaction.response.send_message(embed=make_embed())
+
+        winner_task = asyncio.create_task(sfx.next_player())
+        start_time = datetime.datetime.utcnow()
+
+        while len(unrevealed) > 0:
+            revealed.add(unrevealed.pop(random.randint(0, len(unrevealed) - 1)))
+            if len(unrevealed) == 0:
+                break
+
+            await asyncio.gather(
+                interaction.edit_original_response(embed=make_embed()),
+                sfx.play_for_partial(
+                    interaction.user, sfx.start_millis,
+                    sfx.start_millis + (len(revealed) * increment)))
+            finished, _ = await asyncio.wait([winner_task], timeout=10)
+            if winner_task in finished:
+                break
+
+        if winner_task.done():
+            winner = winner_task.result()
+            time_taken = (datetime.datetime.utcnow() -
+                          start_time).total_seconds()
+            embed = discord.Embed(
+                title=f'{sfx.emoji} {sfx.name}',
+                description=f'{chr(0x1f3c6)}Congratualtions{chr(0x1f3c6)} to '
+                f'**{winner.display_name}**!'
+                f'\nSound effect in found `{time_taken}` seconds.')
+            await interaction.edit_original_response(embed=embed)
+            await self.voice_client_manager.play_file_for(
+                winner,
+                'data/youtubedl/youtube-ixVSBGjfMoE-Vampire_Survivors_-_Small_Chest_Opening_Animation.webm',
+                1000, 9761)
+            await asyncio.sleep(3)
+
+            embed.description += '\nYou have won...'
+            await interaction.edit_original_response(embed=embed)
+            await asyncio.sleep(4)
+
+            embed.description += f' **`{random.randint(0, 1000)}`** credits!'
+            await interaction.edit_original_response(embed=embed)
+
+        else:
+            await interaction.edit_original_response(
+                embed=discord.Embed(title=f'{sfx.emoji} {sfx.name}',
+                                    description=f'Wow you all suck.'))
+            # play_for_partial because it doesn't "count" as a user playing
+            await sfx.play_for_partial(interaction.user, sfx.start_millis,
+                                       sfx.end_millis)
