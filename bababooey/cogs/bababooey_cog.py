@@ -73,7 +73,7 @@ async def do_youtube_dl(url: str,
     #labeled_format = filename.rsplit('.', 1)[-1]
     #if labeled_format not in ('mp3', 'webm', 'm4a'):
 
-    return (os.path.abspath(filename), data['duration'] * 1000)
+    return (os.path.relpath(filename), data['duration'] * 1000)
 
 
 async def read_audio_length(file_path: str) -> int | None:
