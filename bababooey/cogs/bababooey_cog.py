@@ -389,7 +389,9 @@ class BababooeyCog(discord.ext.commands.Cog):
                 description=f'{chr(0x1f3c6)}Congratualtions{chr(0x1f3c6)} to '
                 f'**{winner.display_name}**!'
                 f'\nSound effect in found `{time_taken}` seconds.')
-            await interaction.edit_original_response(embed=embed)
+            view = discord.ui.View()
+            view.add_item(SoundEffectButton(sfx, row=1))
+            await interaction.edit_original_response(embed=embed, view=view)
             await self.voice_client_manager.play_file_for(
                 winner,
                 'data/youtubedl/youtube-ixVSBGjfMoE-Vampire_Survivors_-_Small_Chest_Opening_Animation.webm',
@@ -397,11 +399,11 @@ class BababooeyCog(discord.ext.commands.Cog):
             await asyncio.sleep(3)
 
             embed.description += '\nYou have won...'
-            await interaction.edit_original_response(embed=embed)
+            await interaction.edit_original_response(embed=embed, view=view)
             await asyncio.sleep(4)
 
             embed.description += f' **`{random.randint(0, 1000)}`** credits!'
-            await interaction.edit_original_response(embed=embed)
+            await interaction.edit_original_response(embed=embed, view=view)
 
         else:
             await interaction.edit_original_response(
