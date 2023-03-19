@@ -18,7 +18,7 @@ from settings import SOUNDBOARD_CHANNELS
 
 _log = logging.getLogger(__name__)
 
-CUSTOM_EMOJI_RE = re.compile(r'<:.+:\d+>')
+CUSTOM_EMOJI_RE = re.compile(r'<a?:.+:\d+>')
 X_MESSAGE_TTL_SECONDS = 15 * 60.0 - 5.0
 
 
@@ -386,9 +386,9 @@ class BababooeyCog(discord.ext.commands.Cog):
                           start_time).total_seconds()
             embed = discord.Embed(
                 title=f'{sfx.emoji} {sfx.name}',
-                description=f'{chr(0x1f3c6)}Congratualtions{chr(0x1f3c6)} to '
+                description=f'{chr(0x1f3c6)}Congratulation{chr(0x1f3c6)} to '
                 f'**{winner.display_name}**!'
-                f'\nSound effect in found `{time_taken}` seconds.')
+                f'\nSound effect found in `{time_taken}` seconds.')
             view = discord.ui.View()
             view.add_item(SoundEffectButton(sfx, row=1))
             await interaction.edit_original_response(embed=embed, view=view)

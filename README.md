@@ -3,7 +3,12 @@ Discord Sound Effect Bot
 
 
 ## TODO
-- [ ] hook up the money on guess_sound
+- [ ] guess_sound
+  - [ ] hook up the money on guess_sound
+  - [ ] play again button
+  - [ ] record for fastest
+  - [ ] record for how close the next few people were
+- [ ] Inspecting emoji, original link should be an actual link and include the time
 - [ ] add new sound effects
   - [ ] Timeout (with file cleanup)
 - [ ] History includes the date, formats to ET
