@@ -7,74 +7,76 @@ import re
 import subprocess
 
 import discord
-from discord import app_commands
 import discord.ext.commands
-from racket import RacketBot
 import yt_dlp as youtube_dl
+from discord import app_commands
+from racket import RacketBot
 
 from bababooey import Catalog, SoundEffectData, VoiceClientManager
-from bababooey.ui import make_soundboard_views, SoundEffectButton, SoundEffectCreationManager
+from bababooey.ui import (
+    SoundEffectButton,
+    SoundEffectCreationManager,
+    make_soundboard_views,
+)
 from settings import SOUNDBOARD_CHANNELS
 
 _log = logging.getLogger(__name__)
 
-CUSTOM_EMOJI_RE = re.compile(r'<a?:.+:\d+>')
+CUSTOM_EMOJI_RE = re.compile(r"<a?:.+:\d+>")
 X_MESSAGE_TTL_SECONDS = 15 * 60.0 - 5.0
 
 
-async def do_youtube_dl(url: str,
-                        loop: asyncio.BaseEventLoop) -> tuple[str, int]:
+async def do_youtube_dl(url: str, loop: asyncio.BaseEventLoop) -> tuple[str, int]:
     """Download a youtube video
 
     We will return both the path to the downloaded video, as well as
     the duration in seconds.
-    
+
     Returns:
         A tuple[str, int] of the absoloute path, duration_millis respectively.
     """
-    os.makedirs('data/youtubedl', exist_ok=True)
+    os.makedirs("data/youtubedl", exist_ok=True)
 
-    youtube_dl.utils.bug_reports_message = lambda: ''
+    youtube_dl.utils.bug_reports_message = lambda: ""
 
     ytdl_format_options = {
-        'format': 'bestaudio/best',
+        "format": "bestaudio/best",
         # do the conversion using sox
         #'postprocessors': [{
         #'key': 'FFmpegExtractAudio',
         #'preferredcodec': 'mp3',
         #'preferredquality': '192',
-        #}],
-        'outtmpl': 'data/youtubedl/%(extractor)s-%(id)s-%(title)s.%(ext)s',
-        'restrictfilenames': True,
-        'noplaylist': True,
-        'nocheckcertificate': True,
-        'ignoreerrors': False,
-        'logtostderr': False,
-        'quiet': False,
-        'no_warnings': False,
-        'default_search': 'auto',
-        'source_address':
-            '0.0.0.0'  # bind to ipv4 since ipv6 addresses cause issues sometimes
+        # }],
+        "outtmpl": "data/youtubedl/%(extractor)s-%(id)s-%(title)s.%(ext)s",
+        "restrictfilenames": True,
+        "noplaylist": True,
+        "nocheckcertificate": True,
+        "ignoreerrors": False,
+        "logtostderr": False,
+        "quiet": False,
+        "no_warnings": False,
+        "default_search": "auto",
+        "source_address": "0.0.0.0",  # bind to ipv4 since ipv6 addresses cause issues sometimes
     }
 
     ytdl = youtube_dl.YoutubeDL(ytdl_format_options)
 
-    _log.info('Downloading song from youtube: %s', url)
+    _log.info("Downloading song from youtube: %s", url)
 
     def do_download():
         res = ytdl.extract_info(url, download=True)
         return res
 
     data = ytdl.sanitize_info(await loop.run_in_executor(None, do_download))
-    if 'entries' in data:
+    if "entries" in data:
         # take first item from a playlist
-        data = data['entries'][0]
+        data = data["entries"][0]
 
     filename = ytdl.prepare_filename(data)
-    #labeled_format = filename.rsplit('.', 1)[-1]
-    #if labeled_format not in ('mp3', 'webm', 'm4a'):
+    # labeled_format = filename.rsplit('.', 1)[-1]
+    # if labeled_format not in ('mp3', 'webm', 'm4a'):
 
-    return (os.path.relpath(filename), data['duration'] * 1000)
+    return (os.path.relpath(filename), data["duration"] * 1000)
 
 
 async def read_audio_length(file_path: str) -> int | None:
@@ -82,14 +84,15 @@ async def read_audio_length(file_path: str) -> int | None:
     proc = await asyncio.create_subprocess_shell(
         f'ffprobe -show_entries format=duration {file_path} | grep "duration="',
         stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE)
+        stderr=subprocess.PIPE,
+    )
     stdout, stderr = await proc.communicate()
     if proc.returncode != 0:
-        _log.error('ffprobe failed. Here is the stderr: %s', stderr.decode())
+        _log.error("ffprobe failed. Here is the stderr: %s", stderr.decode())
         return None
     output = stdout.decode().strip()
     try:
-        return int(float(output.removeprefix('duration=')) * 1000)
+        return int(float(output.removeprefix("duration=")) * 1000)
     except ValueError:
         _log.error('Failed to parse ffprobe output "%s"', output)
         return None
@@ -97,7 +100,7 @@ async def read_audio_length(file_path: str) -> int | None:
 
 def _unicode_safe_emoji(discord_emoji: str) -> str:
     if CUSTOM_EMOJI_RE.match(discord_emoji):
-        return chr(0x1f7e6)
+        return chr(0x1F7E6)
     return discord_emoji
 
 
@@ -119,27 +122,29 @@ class BababooeyCog(discord.ext.commands.Cog):
                 self.bot.add_view(view)
 
     async def _autocomplete_sound_effect_name(
-            self, interaction: discord.Interaction,
-            partial_sound: str) -> list[app_commands.Choice[str]]:
-        if partial_sound == '':
+        self, interaction: discord.Interaction, partial_sound: str
+    ) -> list[app_commands.Choice[str]]:
+        if partial_sound == "":
             matches = self.catalog.users_most_recent(interaction.user, 25)
         else:
             matches = self.catalog.find_partial_matches(partial_sound)
         return [
             app_commands.Choice(
-                name=f'{_unicode_safe_emoji(sfx.emoji)} {sfx.name}',
-                value=sfx.name) for sfx in matches[0:25]
+                name=f"{_unicode_safe_emoji(sfx.emoji)} {sfx.name}", value=sfx.name
+            )
+            for sfx in matches[0:25]
         ]
 
     @app_commands.command()
-    @app_commands.describe(search='Look for a sound effect by name or tags.')
+    @app_commands.describe(search="Look for a sound effect by name or tags.")
     @app_commands.autocomplete(search=_autocomplete_sound_effect_name)
     async def x(self, interaction: discord.Interaction, search: str):
         """Play a sound effect."""
         sfx = self.catalog.by_name(search)
         if sfx is None:
             await interaction.response.send_message(
-                f'I don\'t know a sound effect by the name of `{search}`.')
+                f"I don't know a sound effect by the name of `{search}`."
+            )
             return
 
         # Play the requested sound effect.
@@ -152,7 +157,8 @@ class BababooeyCog(discord.ext.commands.Cog):
             view.add_item(SoundEffectButton(sfx, row=i))
         # Create the /x interface.
         await interaction.response.send_message(
-            view=view, ephemeral=True, delete_after=X_MESSAGE_TTL_SECONDS)
+            view=view, ephemeral=True, delete_after=X_MESSAGE_TTL_SECONDS
+        )
 
         # Handle message cleanup code.
         x_message = await interaction.original_response()
@@ -162,8 +168,10 @@ class BababooeyCog(discord.ext.commands.Cog):
         # recent x/ command might have made it into _previous_x_messages. In
         # that case we don't want to delete it, rather we want to delete our
         # x/ message.
-        if user_id in self._previous_x_messages and self._previous_x_messages[
-                user_id].created_at > x_message.created_at:
+        if (
+            user_id in self._previous_x_messages
+            and self._previous_x_messages[user_id].created_at > x_message.created_at
+        ):
             await x_message.delete()
             return
 
@@ -177,13 +185,13 @@ class BababooeyCog(discord.ext.commands.Cog):
         if previous_msg is not None:
             # If it already passed the ttl, don't bother trying to delete it.
             if previous_msg.created_at < datetime.datetime.now(
-                    tz=datetime.timezone.utc) - datetime.timedelta(
-                        seconds=X_MESSAGE_TTL_SECONDS):
+                tz=datetime.timezone.utc
+            ) - datetime.timedelta(seconds=X_MESSAGE_TTL_SECONDS):
                 return
             await previous_msg.delete()
 
     @app_commands.command()
-    @app_commands.describe(search='Look for a sound effect by name or tags.')
+    @app_commands.describe(search="Look for a sound effect by name or tags.")
     @app_commands.autocomplete(search=_autocomplete_sound_effect_name)
     async def inspect_sound(
         self,
@@ -193,47 +201,63 @@ class BababooeyCog(discord.ext.commands.Cog):
         """Edit a sound effect."""
         sfx = self.catalog.by_name(search)
         if sfx is None:
-            await interaction.response.send_message(embed=discord.Embed(
-                title='Unknown sound',
-                description=
-                f'I don\'t know a sound effect by the name of `{search}`.'))
+            await interaction.response.send_message(
+                embed=discord.Embed(
+                    title="Unknown sound",
+                    description=f"I don't know a sound effect by the name of `{search}`.",
+                )
+            )
             return
-        await interaction.response.send_message(embed=sfx.details_embed())
+        view = discord.ui.View(timeout=X_MESSAGE_TTL_SECONDS)
+        view.add_item(
+            discord.ui.Button(
+                style=discord.ButtonStyle.link,
+                label="Go to the source",
+                url=sfx.clean_yt_url,
+            )
+        )
+        e = await sfx.details_embed(interaction.guild)
+        await interaction.response.send_message(embed=e, view=view)
 
     async def _do_soundboard_redraw(self, guild: discord.Guild) -> str:
         """Redraw the soundboard.
-        
+
         Returns the success or failure status.
         """
         async with self._soundboard_drawing_lock:
             if guild.id not in SOUNDBOARD_CHANNELS:
-                return 'This server does not have a soundboard channel configured.'
+                return "This server does not have a soundboard channel configured."
             soundboard_channel = await self.bot.fetch_channel(
-                SOUNDBOARD_CHANNELS[guild.id])
+                SOUNDBOARD_CHANNELS[guild.id]
+            )
             views = make_soundboard_views(self.catalog.all(), guild.id)
 
             # Check the history in that channel.
             expected_number_of_messages = len(views)
             messages = [
-                msg async for msg in soundboard_channel.history(
-                    limit=expected_number_of_messages + 1)
+                msg
+                async for msg in soundboard_channel.history(
+                    limit=expected_number_of_messages + 1
+                )
             ]
             # If there is a lot of messages (more than a soundboard), then maybe the
             # channel was used by something else first. Avoid deleting all the
             # messages to preserve people's history.
             if len(messages) > expected_number_of_messages:
                 return (
-                    'There are more than the expected number of messages '
-                    f'({expected_number_of_messages}) in {soundboard_channel}, '
-                    'just to be safe I don\'t want to delete the history.')
+                    "There are more than the expected number of messages "
+                    f"({expected_number_of_messages}) in {soundboard_channel}, "
+                    "just to be safe I don't want to delete the history."
+                )
 
             # Similarly, if there are some messages sent by someone other than the
             # bot, we know it's something we didn't create so preserve it.
             for msg in messages:
                 if msg.author.id != self.bot.user.id:
                     return (
-                        f'Someone else sent messages in {soundboard_channel}, '
-                        'just to be safe I don\'t want to delete the history.')
+                        f"Someone else sent messages in {soundboard_channel}, "
+                        "just to be safe I don't want to delete the history."
+                    )
 
             try:
                 await soundboard_channel.delete_messages(messages)
@@ -246,20 +270,21 @@ class BababooeyCog(discord.ext.commands.Cog):
             for view in views:
                 await soundboard_channel.send(view=view)
 
-            return (f'Sent a fresh soundboard in #{soundboard_channel}')
+            return f"Sent a fresh soundboard in #{soundboard_channel}"
 
     @app_commands.command()
     async def sync_soundboard(self, interaction: discord.Interaction):
         """Redraw the soundboard channel."""
         if self._soundboard_drawing_lock.locked():
             await interaction.response.send_message(
-                'The soundboard is currently being updated, please try again later.'
+                "The soundboard is currently being updated, please try again later."
             )
             return
         await interaction.response.defer()
         status = await self._do_soundboard_redraw(interaction.guild)
         await interaction.followup.send(
-            embed=discord.Embed(title='Manual Redraw', description=status))
+            embed=discord.Embed(title="Manual Redraw", description=status)
+        )
 
     @app_commands.command()
     async def history(self, interaction: discord.Interaction):
@@ -274,17 +299,21 @@ class BababooeyCog(discord.ext.commands.Cog):
                 # user_id.
                 user = await interaction.guild.fetch_member(user_id)
             lines.append(
-                f'`{dt:%H:%M:%S}` {sfx.emoji}`{sfx.name:>12}` {user.display_name}'
+                f"`{dt:%H:%M:%S}` {sfx.emoji}`{sfx.name:>12}` {user.display_name}"
             )
 
-        await interaction.followup.send('\n'.join(lines))
+        await interaction.followup.send("\n".join(lines))
 
     @app_commands.command()
-    async def add_sound(self, interaction: discord.Interaction,
-                        youtube_url: str, name: app_commands.Range[str, 1, 12],
-                        emoji: str):
+    async def add_sound(
+        self,
+        interaction: discord.Interaction,
+        youtube_url: str,
+        name: app_commands.Range[str, 1, 12],
+        emoji: str,
+    ):
         """Create a new sound effect.
-        
+
         Args:
             youtube_url: The youtube video you want to make into a sound effect.
             name: Must be unique and under 12 char.
@@ -293,21 +322,20 @@ class BababooeyCog(discord.ext.commands.Cog):
         for sfx in self.catalog.all():
             if sfx.name == name:
                 await interaction.response.send_message(
-                    f'Sound effect name must be unique. `{name}` is already a sound effect.'
+                    f"Sound effect name must be unique. `{name}` is already a sound effect."
                 )
                 return
-            #TODO: this failed when using :shield:
+            # TODO: this failed when using :shield:
             if sfx.emoji == emoji:
                 await interaction.response.send_message(
-                    f'Sound effect emoji must be unique. {emoji} is already a sound effect.'
+                    f"Sound effect emoji must be unique. {emoji} is already a sound effect."
                 )
                 return
 
         await interaction.response.defer()
 
         # TODO: prevent downloading if it's larger than a limit.
-        file_path, duration_millis = await do_youtube_dl(
-            youtube_url, self.bot.loop)
+        file_path, duration_millis = await do_youtube_dl(youtube_url, self.bot.loop)
 
         # ffprobe gives a higher resolution of the duration.
         ffprobe_duration_millis = await read_audio_length(file_path)
@@ -325,25 +353,33 @@ class BababooeyCog(discord.ext.commands.Cog):
             created_at=datetime.datetime.now(tz=datetime.timezone.utc),
             start_millis=0,
             end_millis=duration_millis,
-            tags=f'{name},')
+            tags=f"{name},",
+        )
 
         creation_manager = SoundEffectCreationManager(
             partial_sfx_data=partial_sfx_data,
             original_interaction=interaction,
             voice_client_manager=self.voice_client_manager,
-            catalog=self.catalog)
+            catalog=self.catalog,
+        )
 
         new_sfx = await creation_manager.manage()
         if new_sfx is None:
             # Creation failed or was cancelled. It should have done its own
             # message.
             return
-        await interaction.edit_original_response(embed=discord.Embed(
-            title=f'{new_sfx.emoji} {new_sfx.name}',
-            description='Updating the soundboard, please wait...'))
+        await interaction.edit_original_response(
+            embed=discord.Embed(
+                title=f"{new_sfx.emoji} {new_sfx.name}",
+                description="Updating the soundboard, please wait...",
+            )
+        )
         status = await self._do_soundboard_redraw(interaction.guild)
-        await interaction.edit_original_response(embed=discord.Embed(
-            title=f'{new_sfx.emoji} {new_sfx.name}', description=status))
+        await interaction.edit_original_response(
+            embed=discord.Embed(
+                title=f"{new_sfx.emoji} {new_sfx.name}", description=status
+            )
+        )
 
     @app_commands.command()
     async def guess_sound(self, interaction: discord.Interaction):
@@ -352,14 +388,17 @@ class BababooeyCog(discord.ext.commands.Cog):
         unrevealed = list(range(len(sfx.name)))
         revealed = set()
         # Either a fraction of the SFX, or a 0.25 second, whatever is smaller
-        increment = int(
-            min((sfx.end_millis - sfx.start_millis) / len(sfx.name), 250))
+        increment = int(min((sfx.end_millis - sfx.start_millis) / len(sfx.name), 250))
 
         def make_embed() -> discord.Embed:
-            return discord.Embed(title=''.join([
-                sfx.name[i] if i in revealed else '?'
-                for i in range(len(sfx.name))
-            ]))
+            return discord.Embed(
+                title="".join(
+                    [
+                        sfx.name[i] if i in revealed else "?"
+                        for i in range(len(sfx.name))
+                    ]
+                )
+            )
 
         await interaction.response.send_message(embed=make_embed())
 
@@ -374,41 +413,49 @@ class BababooeyCog(discord.ext.commands.Cog):
             await asyncio.gather(
                 interaction.edit_original_response(embed=make_embed()),
                 sfx.play_for_partial(
-                    interaction.user, sfx.start_millis,
-                    sfx.start_millis + (len(revealed) * increment)))
+                    interaction.user,
+                    sfx.start_millis,
+                    sfx.start_millis + (len(revealed) * increment),
+                ),
+            )
             finished, _ = await asyncio.wait([winner_task], timeout=10)
             if winner_task in finished:
                 break
 
         if winner_task.done():
             winner = winner_task.result()
-            time_taken = (datetime.datetime.utcnow() -
-                          start_time).total_seconds()
+            time_taken = (datetime.datetime.utcnow() - start_time).total_seconds()
             embed = discord.Embed(
-                title=f'{sfx.emoji} {sfx.name}',
-                description=f'{chr(0x1f3c6)}Congratulation{chr(0x1f3c6)} to '
-                f'**{winner.display_name}**!'
-                f'\nSound effect found in `{time_taken}` seconds.')
+                title=f"{sfx.emoji} {sfx.name}",
+                description=f"{chr(0x1f3c6)}Congratulation{chr(0x1f3c6)} to "
+                f"**{winner.display_name}**!"
+                f"\nSound effect found in `{time_taken}` seconds.",
+            )
             view = discord.ui.View()
             view.add_item(SoundEffectButton(sfx, row=1))
             await interaction.edit_original_response(embed=embed, view=view)
             await self.voice_client_manager.play_file_for(
                 winner,
-                'data/youtubedl/youtube-ixVSBGjfMoE-Vampire_Survivors_-_Small_Chest_Opening_Animation.webm',
-                1000, 9761)
+                "data/youtubedl/youtube-ixVSBGjfMoE-Vampire_Survivors_-_Small_Chest_Opening_Animation.webm",
+                1000,
+                9761,
+            )
             await asyncio.sleep(3)
 
-            embed.description += '\nYou have won...'
+            embed.description += "\nYou have won..."
             await interaction.edit_original_response(embed=embed, view=view)
             await asyncio.sleep(4)
 
-            embed.description += f' **`{random.randint(0, 1000)}`** credits!'
+            embed.description += f" **`{random.randint(0, 1000)}`** credits!"
             await interaction.edit_original_response(embed=embed, view=view)
 
         else:
             await interaction.edit_original_response(
-                embed=discord.Embed(title=f'{sfx.emoji} {sfx.name}',
-                                    description=f'Wow you all suck.'))
+                embed=discord.Embed(
+                    title=f"{sfx.emoji} {sfx.name}", description=f"Wow you all suck."
+                )
+            )
             # play_for_partial because it doesn't "count" as a user playing
-            await sfx.play_for_partial(interaction.user, sfx.start_millis,
-                                       sfx.end_millis)
+            await sfx.play_for_partial(
+                interaction.user, sfx.start_millis, sfx.end_millis
+            )
