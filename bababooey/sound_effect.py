@@ -52,7 +52,9 @@ class SoundEffect:
             and len(captured_params["v"]) == 1
         ):
             return captured_params["v"][0]
-        m = re.match(r"(https?://)(www\.)?youtu\.be/([a-zA-Z0-9\-_]{11}).*", self._raw.yt_url)
+        m = re.match(
+            r"(https?://)(www\.)?youtu\.be/([a-zA-Z0-9\-_]{11}).*", self._raw.yt_url
+        )
         if m:
             return m.groups()[2]
         return None
@@ -111,10 +113,13 @@ class SoundEffect:
         author = await guild.fetch_member(self._raw.author)
 
         e = discord.Embed(title=f"{self.emoji} {self.name}")
-        e.add_field(name="Start", value=f'`{millis_to_str(self.start_millis)}`')
-        e.add_field(name="End", value=f'`{millis_to_str(self.end_millis)}`')
-        e.add_field(name="Original link", value=f'`{self.yt_url}`')
-        e.add_field(name="Created", value=f"`{self._raw.created_at.strftime("%Y-%m-%dT%H:%M:%S")}` (<t:{int(self._raw.created_at.timestamp())}:R>)\n")
+        e.add_field(name="Start", value=f"`{millis_to_str(self.start_millis)}`")
+        e.add_field(name="End", value=f"`{millis_to_str(self.end_millis)}`")
+        e.add_field(name="Original link", value=f"`{self.yt_url}`")
+        e.add_field(
+            name="Created",
+            value=f"`{self._raw.created_at.strftime('%Y-%m-%dT%H:%M:%S')}` (<t:{int(self._raw.created_at.timestamp())}:R>)\n",
+        )
         if author:
             e.set_footer(text=author.nick, icon_url=author.avatar.url)
         else:
