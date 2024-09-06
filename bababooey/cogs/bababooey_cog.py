@@ -57,6 +57,9 @@ async def do_youtube_dl(url: str, loop: asyncio.BaseEventLoop) -> tuple[str, int
         "no_warnings": False,
         "default_search": "auto",
         "source_address": "0.0.0.0",  # bind to ipv4 since ipv6 addresses cause issues sometimes
+        # Use the oauth login method to avoid bot detection.
+        "username": "oauth",
+        "password": "",
     }
 
     ytdl = youtube_dl.YoutubeDL(ytdl_format_options)
